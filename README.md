@@ -1,3 +1,5 @@
 # The Bakery
 
-_The following is a work of fiction, following README-driven development principles._
+Check out [the future][future].
+
+[future]: /FUTURE.md
