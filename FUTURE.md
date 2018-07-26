@@ -312,4 +312,15 @@ This is not exhaustive; it's just what I think might be useful.
 - Git repository clones
 - Docker images
 - Docker containers
+- Kubernetes resources
 - Ansible modifier (so any Ansible module can be a recipe)
+
+## Other uses
+
+We've talked entirely about "building" in this document, but there are other ways to apply this language (or a variation of it).
+
+We could create a shell that operates in a more _static_ fashion, allowing for more safety and surety when running commands. It would also allow us to easily "dry-run" operations (in other words, predict the output without actually changing anything).
+
+We could create a continuous integration and deployment server that's effectively Watch mode with a nice UI.
+
+Or we could even build [an event sourcing system that knows how to flow events between (serverless?) processes](https://monospacedmonologues.com/2018/07/functional-reactive-serverless-architecture/).
