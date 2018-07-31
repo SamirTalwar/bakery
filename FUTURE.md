@@ -73,7 +73,7 @@ file:./consonants.md <- remove-vowels <- console:in
 Here's an implementation of `cat` in The Bakery:
 
 ```bake
-console:out <- console.in
+console:out <- console:in
 ```
 
 ### Splitting
@@ -187,7 +187,7 @@ We can use `time` to force a recipe to always bake, or to bake on a schedule.
 Let's take this cookbook below:
 
 ```bake
-=:everything = file:./consonants.md, file:./vowels.md
+everything = file:./consonants.md, file:./vowels.md
 
 file:./consonants.md <- remove-vowels <- store:first-10-lines
 
