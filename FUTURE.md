@@ -41,21 +41,6 @@ remove-vowels = process:
 
 More information is available in the API documentation.
 
-### Failure
-
-Processes can _fail_. If a process exits with a non-zero exit code, it will have failed, and the thread of execution will stop.
-
-If this happens, `bake` will report the error and exit with an exit code of `1`.
-
-Here's an example of a cookbook that will always fail:
-
-```bake
-file:./irrelevant.txt <- always-fails
-
-always-fails = process:
-  command: false
-```
-
 ### Writing to the console
 
 We don't just have to work with files, though. For example, instead of writing to a file, we could write to the console's STDOUT:
@@ -182,24 +167,6 @@ The first time you run `bake`, it will print the current time. If you run it aga
 
 We can use `time` to force a recipe to always bake, or to bake on a schedule.
 
-### Concurrency and parallelism
-
-Let's take this cookbook below:
-
-```bake
-everything = file:./consonants.md, file:./vowels.md
-
-file:./consonants.md <- remove-vowels <- store:first-10-lines
-
-file:./vowels.md <- remove-consonants <- store:first-10-lines
-
-store:first-10-lines <- first-10-lines <- file:./README.md
-```
-
-If we run `bake`, it will split, then join again. Because they're independent, there's no need to produce _consonants.md_ and _vowels.md_ serially. We can run them in parallel. So we do.
-
-The Bakery will parallelise as much as it can. This means that outputs can fail (typically because a process fails) and it will still finish the other threads of execution before reporting the failure.
-
 ### Splitting, mapping and joining with wildcards
 
 Often, we need to work on many inputs at once. We can use wildcards (or "globs") to do this.
@@ -246,6 +213,108 @@ Finally, if the contents of the _inputs_ directory changes, re-running `bake` wi
 ```bake
 !file:./outputs/$[$item.basename].txt <- lowercase <- each as $item <- file:./inputs/*.txt
 ```
+
+### Failure and Validation
+
+Processes can _fail_. If a process exits with a non-zero exit code, it will have failed, and the thread of execution will stop.
+
+If this happens, `bake` will report the error and exit with an exit code of `1`.
+
+Here's an example of a cookbook that will always fail:
+
+```bake
+file:./irrelevant.txt <- always-fails
+
+always-fails = process:
+  command: false
+```
+
+It'll result in the error:
+
+```
+always-fails :: ERROR: The process `false` exited with a status code of 1.
+```
+
+The Bakery is designed to be operated under supervision, so often, the right thing to do is to just tell the user that an error occured. For example, this could fail:
+
+```bake
+file:./output.txt <- console:in
+```
+
+It might fail because we don't have write access, or because we're out of disk space, or one of hundreds of other reasons. In this circumstance, we probably don't want to try and handle the error. We just want to know about it. And so `bake` will print something like this:
+
+```
+file:./output.txt :: ERROR: Could not write to file \"./output.txt\". Access denied.
+```
+
+It's on you to figure out why.
+
+Sometimes, however, we have a programmer error, and those, we can also report on.
+
+For example:
+
+```bake
+file:./output.txt <- file:./input.txt
+```
+
+If _input.txt_ doesn't exist and there's no recipe to make one, we'll get an error, but this time, it won't even try to run. It'll just fail straight away.
+
+```
+file:./output.txt :: ERROR: No recipe for `file:./input.txt`.
+```
+
+There are occasions, however, where we can do something about the error. For example, here's a more insidious one:
+
+```bake
+file:./output.txt <- file:./inpputs/*.txt
+```
+
+If there are no input files, the glob will expand to contain no files, and so the output file will be empty. But wait, it's just a typo; we actually meant "inputs", not "inpputs".
+
+Typically, you don't expect zero inputs, so `bake` will generate an error:
+
+```
+file:./output.txt :: ERROR: `file:./inpputs/*.txt` resulted in no items.
+```
+
+Of course, there are cases where no items is completely valid, so you can mark those explicitly to suppress the error:
+
+```bake
+file:./output.txt <- *** file:./inpputs/*.txt
+```
+
+Lastly, we might want to verify something more advanced. For example, perhaps we expect there to be at least 2 input files. We can cater for this by adding a specific check:
+
+```bake
+file:./output.txt <- check(.length >= 2) <- file:./inputs/*.txt
+```
+
+`check` is a Bakery function that, given a validation function, validates an input (or multiple inputs). If everything checks out, it passes its input on as output; if not, it'll error:
+
+```
+file:./output.txt :: ERROR: Failed validation.
+  Rule: .length >= 2
+  Input:
+    - file:./inputs/only.txt
+```
+
+### Concurrency and parallelism
+
+Let's take this cookbook below:
+
+```bake
+everything = file:./consonants.md, file:./vowels.md
+
+file:./consonants.md <- remove-vowels <- store:first-10-lines
+
+file:./vowels.md <- remove-consonants <- store:first-10-lines
+
+store:first-10-lines <- first-10-lines <- file:./README.md
+```
+
+If we run `bake`, it will split, then join again. Because they're independent, there's no need to produce _consonants.md_ and _vowels.md_ serially. We can run them in parallel. So we do.
+
+The Bakery will parallelise as much as it can. This means that outputs can fail (typically because a process fails) and it will still finish the other threads of execution before reporting the failure.
 
 ### Repetition
 
