@@ -97,11 +97,13 @@ first-10-lines = process:
 These files can often clutter up the local directory, though, and because they can change, might trigger work when none is necessary. Instead, we can use a `store` to capture intermediate data.
 
 ```bake
-store:README-first-10 -> remove-vowels -> file:./consonants.md
+README-first-10 -> remove-vowels -> file:./consonants.md
 
-store:README-first-10 -> remove-consonants -> file:./vowels.md
+README-first-10 -> remove-consonants -> file:./vowels.md
 
-file:./README.md -> first-10-lines -> store:README-first-10
+file:./README.md -> first-10-lines -> README-first-10
+
+README-first-10 = store()
 ```
 
 This also has the advantage of capturing data that isn't easily stored in a file. More on that later.
@@ -157,15 +159,17 @@ Running `bake` will print the current time to the console. Because the time is a
 If we would like to be less granular, we can construct a new `time`, which accepts a "resolution":
 
 ```bake
-time:minutes -> console:out
+minutes -> console:out
 
-time:minutes =
+minutes = time:
   resolution: 1m
 ```
 
 The first time you run `bake`, it will print the current time. If you run it again immediately, it won't do anything. You'll have to wait until the next minute (or longer) before it will run again.
 
-We can use `time` to force a recipe to always bake, or to bake on a schedule.
+We can use `time` to force a recipe to always bake, or to bake to a schedule.
+
+`time:minutes` is a built-in, so you can just use it without defining it.
 
 ### Splitting, mapping and joining with wildcards
 
@@ -305,11 +309,13 @@ Let's take this cookbook below:
 ```bake
 everything = file:./consonants.md, file:./vowels.md
 
-store:first-10-lines -> remove-vowels -> file:./consonants.md
+stored-first-10-lines -> remove-vowels -> file:./consonants.md
 
-store:first-10-lines -> remove-consonants -> file:./vowels.md
+stored-first-10-lines -> remove-consonants -> file:./vowels.md
 
-file:./README.md -> first-10-lines -> store:first-10-lines
+file:./README.md -> first-10-lines -> stored-first-10-lines
+
+stored-first-10-lines = store()
 ```
 
 If we run `bake`, it will split, then join again. Because they're independent, there's no need to produce _consonants.md_ and _vowels.md_ serially. We can run them in parallel. So we do.
@@ -326,9 +332,6 @@ For example, here's a silly recipe that will print the current minute:
 
 ```bake
 time:minutes -> console:out
-
-time:minutes =
-  resolution: 1m
 ```
 
 Running `bake --watch` will print the time _every_ minute until the process is stopped (with Ctrl+C).
