@@ -9,7 +9,7 @@ Welcome to The Bakery. Let's bake some goodies.
 We'll start with a simple example.
 
 ```bake
-file:./consonants.md <- remove-vowels <- file:./README.md
+file:./README.md -> remove-vowels -> file:./consonants.md
 
 remove-vowels = process:
   command: sed 's/[aeiou]//'
@@ -30,7 +30,7 @@ Of course, sometimes you don't want to pipe text through STDIN and STDOUT, but d
 This is also pretty easy in The Bakery.
 
 ```bake
-file:./consonants.md <- remove-vowels <- file:./README.md
+file:./README.md -> remove-vowels -> file:./consonants.md
 
 remove-vowels = process:
   command: sed 's/[aeiou]//' '$[$input.path]' > '$[$output.path]'
@@ -46,19 +46,19 @@ More information is available in the API documentation.
 We don't just have to work with files, though. For example, instead of writing to a file, we could write to the console's STDOUT:
 
 ```bake
-console:out <- remove-vowels <- file:./README.md
+file:./README.md -> remove-vowels -> console:out
 ```
 
 Or we could read from STDIN:
 
 ```bake
-file:./consonants.md <- remove-vowels <- console:in
+console:in -> remove-vowels -> file:./consonants.md
 ```
 
 Here's an implementation of `cat` in The Bakery:
 
 ```bake
-console:out <- console:in
+console:in -> console:out
 ```
 
 ### Splitting
@@ -66,9 +66,9 @@ console:out <- console:in
 It's common to want to do two things with a single input. The Bakery will happily handle that with multiple recipes in one cookbook:
 
 ```bake
-file:./consonants.md <- remove-vowels <- file:./README.md
+file:./README.md -> remove-vowels -> file:./consonants.md
 
-file:./vowels.md <- remove-consonants <- file:./README.md
+file:./README.md -> remove-consonants -> file:./vowels.md
 ```
 
 Running `bake` will only bake the first one. To bake them both, we need to tell it to:
@@ -80,11 +80,11 @@ $ bake file:./consonants.md file:./vowels.md
 Sometimes we need to split an output from a previous step into two. We can store the intermediate result in a file:
 
 ```bake
-file:./consonants.md <- remove-vowels <- file:./first-10-lines.md
+file:./first-10-lines.md -> remove-vowels -> file:./consonants.md
 
-file:./vowels.md <- remove-consonants <- file:./first-10-lines.md
+file:./first-10-lines.md -> remove-consonants -> file:./vowels.md
 
-file:./first-10-lines.md <- first-10-lines <- file:./README.md
+file:./README.md -> first-10-lines -> file:./first-10-lines.md
 
 ...
 
@@ -97,11 +97,11 @@ first-10-lines = process:
 These files can often clutter up the local directory, though, and because they can change, might trigger work when none is necessary. Instead, we can use a `store` to capture intermediate data.
 
 ```bake
-file:./consonants.md <- remove-vowels <- store:README-first-10
+store:README-first-10 -> remove-vowels -> file:./consonants.md
 
-file:./vowels.md <- remove-consonants <- store:README-first-10
+store:README-first-10 -> remove-consonants -> file:./vowels.md
 
-store:README-first-10 <- first-10-lines <- file:./README.md
+file:./README.md -> first-10-lines -> store:README-first-10
 ```
 
 This also has the advantage of capturing data that isn't easily stored in a file. More on that later.
@@ -113,7 +113,7 @@ Often, baking an output will require multiple inputs. We can denote these with s
 This recipe concatenates two files and prints them to STDOUT:
 
 ```bake
-console:out <- file:./consonants.md, file:./vowels.md
+file:./consonants.md, file:./vowels.md -> console:out
 ```
 
 We can use this syntax to add a top-level recipe that relies on all the other recipes, but doesn't do anything with them. This lets us avoid typing the names of recipes on the command line.
@@ -125,13 +125,13 @@ everything = file:./consonants.md, file:./vowels.md
 Or we could write the results to a file:
 
 ```bake
-file:./consonants-and-vowels.md <- file:./consonants.md, file:./vowels.md
+file:./consonants.md, file:./vowels.md -> file:./consonants-and-vowels.md
 ```
 
 If we wanted to pipe through a process, we could pass the arguments as follows:
 
 ```bake
-file:./consonants-and-vowels.md <- cat <- file:./consonants.md, file:./vowels.md
+file:./consonants.md, file:./vowels.md -> cat -> file:./consonants-and-vowels.md
 
 cat = process:
   command: cat $[map .path $inputs]
@@ -149,7 +149,7 @@ As an aside, because we are not specifying a shell, The Bakery will split the ar
 Let's consider another input:
 
 ```bake
-console:out <- time:now
+time:now -> console:out
 ```
 
 Running `bake` will print the current time to the console. Because the time is always changing, this will re-run every time you `bake`.
@@ -157,7 +157,7 @@ Running `bake` will print the current time to the console. Because the time is a
 If we would like to be less granular, we can construct a new `time`, which accepts a "resolution":
 
 ```bake
-console:out <- time:minutes
+time:minutes -> console:out
 
 time:minutes =
   resolution: 1m
@@ -174,7 +174,7 @@ Often, we need to work on many inputs at once. We can use wildcards (or "globs")
 For example, let's say we had a lot of text files, and we needed them all in lowercase. We'd use wildcards to specify them as a collection, and then map over them.
 
 ```bake
-file:./outputs/$[$item.basename].txt <- lowercase <- each as $item <- file:./inputs/*.txt
+file:./inputs/*.txt -> each as $item -> lowercase -> file:./outputs/$[$item.basename].txt
 
 lowercase = process:
   command: tr '[:upper:]' '[:lower:]'
@@ -191,7 +191,7 @@ We could also bake a single one by running, for example, `bake file:./outputs/ex
 For more sophisticated wildcards, we can use multiple asterisks:
 
 ```bake
-file:./outputs/*/*.txt <- lowercase <- file:./inputs/*/*.txt
+file:./inputs/*/*.txt -> lowercase -> file:./outputs/*/*.txt
 ```
 
 The first input wildcard corresponds to the first output wildcard, and so on. There must be an equal number of asterisks on each side.
@@ -199,19 +199,19 @@ The first input wildcard corresponds to the first output wildcard, and so on. Th
 Sometimes we really do want to pipe all the files to a single operation. To do this, we just drop the `each`. The following recipe bakes a single file from all input files by concatenating them.
 
 ```bake
-file:./output.txt <- file:./inputs/*.txt
+file:./inputs/*.txt -> file:./output.txt
 ```
 
 Or we might break the collection into chunks of 10 by using the `chunk` recipe:
 
 ```bake
-file:./output/$[$chunk.index].txt <- chunk(10) as $chunk <- file:./inputs/*.txt
+file:./inputs/*.txt -> chunk(10) as $chunk -> file:./output/$[$chunk.index].txt
 ```
 
 Finally, if the contents of the _inputs_ directory changes, re-running `bake` will re-run the recipe for the changed files. However, it won't delete output files that correspond to deleted input files by default. You can specify that The Bakery should delete "orphaned" outputs by adding a `!` to the start of the recipe name:
 
 ```bake
-!file:./outputs/$[$item.basename].txt <- lowercase <- each as $item <- file:./inputs/*.txt
+file:./inputs/*.txt -> each as $item -> lowercase -> !file:./outputs/$[$item.basename].txt
 ```
 
 ### Failure and Validation
@@ -223,7 +223,7 @@ If this happens, `bake` will report the error and exit with an exit code of `1`.
 Here's an example of a cookbook that will always fail:
 
 ```bake
-file:./irrelevant.txt <- always-fails
+always-fails -> file:./irrelevant.txt
 
 always-fails = process:
   command: false
@@ -238,7 +238,7 @@ always-fails :: ERROR: The process `false` exited with a status code of 1.
 The Bakery is designed to be operated under supervision, so often, the right thing to do is to just tell the user that an error occured. For example, this could fail:
 
 ```bake
-file:./output.txt <- console:in
+console:in -> file:./output.txt
 ```
 
 It might fail because we don't have write access, or because we're out of disk space, or one of hundreds of other reasons. In this circumstance, we probably don't want to try and handle the error. We just want to know about it. And so `bake` will print something like this:
@@ -254,7 +254,7 @@ Sometimes, however, we have a programmer error, and those, we can also report on
 For example:
 
 ```bake
-file:./output.txt <- file:./input.txt
+file:./input.txt -> file:./output.txt
 ```
 
 If _input.txt_ doesn't exist and there's no recipe to make one, we'll get an error, but this time, it won't even try to run. It'll just fail straight away.
@@ -266,7 +266,7 @@ file:./output.txt :: ERROR: No recipe for `file:./input.txt`.
 There are occasions, however, where we can do something about the error. For example, here's a more insidious one:
 
 ```bake
-file:./output.txt <- file:./inpputs/*.txt
+file:./inpputs/*.txt -> file:./output.txt
 ```
 
 If there are no input files, the glob will expand to contain no files, and so the output file will be empty. But wait, it's just a typo; we actually meant "inputs", not "inpputs".
@@ -280,13 +280,13 @@ file:./output.txt :: ERROR: `file:./inpputs/*.txt` resulted in no items.
 Of course, there are cases where no items is completely valid, so you can mark those explicitly to suppress the error:
 
 ```bake
-file:./output.txt <- *** file:./inpputs/*.txt
+*** file:./inpputs/*.txt -> file:./output.txt
 ```
 
 Lastly, we might want to verify something more advanced. For example, perhaps we expect there to be at least 2 input files. We can cater for this by adding a specific check:
 
 ```bake
-file:./output.txt <- check(.length >= 2) <- file:./inputs/*.txt
+file:./inputs/*.txt -> check(.length >= 2) -> file:./output.txt
 ```
 
 `check` is a Bakery function that, given a validation function, validates an input (or multiple inputs). If everything checks out, it passes its input on as output; if not, it'll error:
@@ -305,11 +305,11 @@ Let's take this cookbook below:
 ```bake
 everything = file:./consonants.md, file:./vowels.md
 
-file:./consonants.md <- remove-vowels <- store:first-10-lines
+store:first-10-lines -> remove-vowels -> file:./consonants.md
 
-file:./vowels.md <- remove-consonants <- store:first-10-lines
+store:first-10-lines -> remove-consonants -> file:./vowels.md
 
-store:first-10-lines <- first-10-lines <- file:./README.md
+file:./README.md -> first-10-lines -> store:first-10-lines
 ```
 
 If we run `bake`, it will split, then join again. Because they're independent, there's no need to produce _consonants.md_ and _vowels.md_ serially. We can run them in parallel. So we do.
@@ -325,7 +325,7 @@ This is easy. Just run `bake --watch`. It will watch the inputs and bake outputs
 For example, here's a silly recipe that will print the current minute:
 
 ```bake
-console:out <- time:minutes
+time:minutes -> console:out
 
 time:minutes =
   resolution: 1m
