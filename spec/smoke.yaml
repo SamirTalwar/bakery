@@ -1,0 +1,11 @@
+command:
+  - target/debug/bakery
+
+tests:
+  - name: stdin-to-stdout
+    args:
+      - spec/stdin-to-stdout.bake
+    stdin: |
+      Hello, world!
+    stdout: |
+      Hello, world!
