@@ -1,4 +1,5 @@
 .envrc.local
 
 # Rust
+proptest-regressions
 /target

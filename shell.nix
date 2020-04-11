@@ -17,5 +17,5 @@ mkShell {
     rustfmt
     rustracer
     smoke
-  ];
+  ] ++ (if stdenv.isDarwin then [darwin.apple_sdk.frameworks.Security] else []);
 }
