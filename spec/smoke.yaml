@@ -9,3 +9,14 @@ tests:
       Hello, world!
     stdout: |
       Hello, world!
+
+  - name: stdin-to-file
+    ignored: true
+    args:
+      - spec/stdin-to-file.bake
+    stdin: |
+      What's up, planet?
+    files:
+      - path: output/file.out
+        contents: |
+          What's up, planet?
