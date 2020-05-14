@@ -20,7 +20,9 @@ impl<'a> fmt::Display for Error<'a> {
 
 impl<'a> error::Error for Error<'a> {}
 
-pub fn match_literal<'a>(expected: &'a str) -> impl Fn(Input<'a>) -> Parsed<'a, ()> {
+pub fn match_literal<'literal: 'a, 'a>(
+    expected: &'literal str,
+) -> impl Fn(Input<'a>) -> Parsed<'_, ()> {
     move |input| match input.get(0..expected.len()) {
         Some(next) if next == expected => Ok((&input[expected.len()..], ())),
         _ => Err(Error::Rejected(input)),
