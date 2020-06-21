@@ -29,6 +29,14 @@ pub fn match_literal<'literal: 'a, 'a>(
     }
 }
 
+pub fn comment<'a>(input: Input<'a>) -> Parsed<'_, ()> {
+    let (text, _) = match_literal("#")(input)?;
+    match text.find("\n") {
+        Some(newline) => Ok((&text[newline + 1..], ())),
+        None => Ok(("", ())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,6 +72,26 @@ mod tests {
 
             let result = match_literal(&expected)(&input);
             prop_assert_eq!(Err(Error::Rejected(&input)), result);
+        }
+
+        #[test]
+        fn comment_matches_a_comment_marker_to_the_end_of_the_line(comment_text in any::<String>()) {
+            let input = "#".to_string() + &comment_text + "\n";
+            let parsed = comment(&input)?;
+            prop_assert_eq!(("", ()), parsed);
+        }
+
+        #[test]
+        fn comment_matches_a_comment_marker_on_the_last_line(comment_text in any::<String>()) {
+            let input = "#".to_string() + &comment_text;
+            let parsed = comment(&input)?;
+            prop_assert_eq!(("", ()), parsed);
+        }
+
+        #[test]
+        fn comment_does_not_match_anything_else(input in "[^#]\\PC*") {
+            let parsed = comment(&input);
+            prop_assert_eq!(Err(Error::Rejected(&input)), parsed);
         }
     }
 }
