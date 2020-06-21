@@ -8,8 +8,9 @@ mkShell {
   name = "bakery";
 
   buildInputs = [
-    cargo
-    rustc
+    rustPlatform.rust.cargo
+    rustPlatform.rust.rustc
+    rustPlatform.rustcSrc
     rustfmt
     smoke
   ] ++ (if stdenv.isDarwin then [darwin.apple_sdk.frameworks.Security] else []);
