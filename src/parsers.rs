@@ -3,7 +3,7 @@ use super::types::*;
 use std::ops;
 
 use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, line_ending, not_line_ending, space0};
+use nom::character::complete::{alpha1, line_ending, multispace1, not_line_ending, space0};
 use nom::sequence::delimited;
 use nom::IResult;
 
@@ -13,8 +13,16 @@ fn spaced<'a, T>(
     delimited(space0, parser, space0)
 }
 
-named!(comment<&str, &str>,
-       terminated!(preceded!(tag!("#"), not_line_ending), opt!(line_ending)));
+named!(line<&str, &str>, terminated!(alt!(not_line_ending | tag!("")), opt!(line_ending)));
+
+named!(comment<&str, &str>, preceded!(tag!("#"), line));
+
+// TODO: Support non-ASCII whitespace.
+named!(whitespace<&str, &str>, recognize!(multispace1));
+
+named!(markup<&str, ()>, alt!(
+    value!((), many0!(alt!(whitespace | complete!(comment))))
+));
 
 named!(identifier<&str, Identifier>, map!(alpha1, |id| Identifier(id.to_string())));
 
@@ -29,10 +37,13 @@ fn arrow(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
+named!(pub program<&str, Pipe>, exact!(delimited!(markup, pipe, markup)));
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest;
+    use proptest::collection;
     use proptest::prelude::*;
 
     prop_compose! {
@@ -42,6 +53,18 @@ mod tests {
     }
 
     proptest! {
+        #[test]
+        fn whitespace_matches_any_whitespace(input in "[ \t\r\n]+") {
+            let parsed = whitespace(&input)?;
+            prop_assert_eq!(("", input.as_str()), parsed);
+        }
+
+        #[test]
+        fn whitespace_does_not_match_any_other_text(input in "[^ \t\r\n]+.*") {
+            let parsed = whitespace(&input);
+            prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
+        }
+
         #[test]
         fn comment_matches_a_comment_marker_to_the_end_of_the_line(comment_text in "#\\PC*", next_line in any::<String>()) {
             let expected = comment_text[1..].to_string();
@@ -58,9 +81,16 @@ mod tests {
         }
 
         #[test]
-        fn comment_does_not_match_anything_else(input in "[^#]\\PC*") {
+        fn comment_does_not_match_anything_else(input in "|[^#]\\PC*") {
             let parsed = comment(&input);
-            prop_assert!(parsed.is_err());
+            prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
+        }
+
+        #[test]
+        fn markup_matches_comments_and_whitespace(lines in collection::vec("[ \t\r\n]*|#\\PC*", 0..5)) {
+            let input = lines.join("\n");
+            let parsed = markup(&input)?;
+            prop_assert_eq!(("", ()), parsed);
         }
 
         #[test]
@@ -72,7 +102,7 @@ mod tests {
         #[test]
         fn identifier_does_not_match_anything_else(input in "[^A-Za-z].*") {
             let parsed = identifier(&input);
-            prop_assert!(parsed.is_err());
+            prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
         }
 
         #[test]
