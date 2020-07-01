@@ -14,5 +14,5 @@ pub struct Pipe {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
-    program: Pipe,
+    pub pipe: Pipe,
 }

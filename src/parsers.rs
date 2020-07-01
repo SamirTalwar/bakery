@@ -37,7 +37,7 @@ fn arrow(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
-named!(pub program<&str, Pipe>, exact!(delimited!(markup, pipe, markup)));
+named!(pub program<&str, Program>, exact!(map!(delimited!(markup, pipe, markup), |pipe| Program { pipe })));
 
 #[cfg(test)]
 mod tests {
