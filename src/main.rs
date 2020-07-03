@@ -8,7 +8,6 @@ use std::io::Read;
 
 mod interpreter;
 mod parsers;
-mod types;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -22,9 +21,7 @@ fn main() -> io::Result<()> {
         2 => fs::read_to_string(&args[1]),
         _ => Err(io::Error::new(io::ErrorKind::Other, "Too many arguments.")),
     }?;
-    let program = parsers::program(&input)
-        .map(|(_, result)| result)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let program = parsers::parse(&input)?;
     interpreter::interpret(program)?;
     Ok(())
 }

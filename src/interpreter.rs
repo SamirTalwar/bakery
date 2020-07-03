@@ -1,6 +1,6 @@
 use std::io;
 
-use super::types::*;
+use super::parsers::Program;
 
 pub fn interpret(_program: Program) -> io::Result<()> {
     println!("Hello, world!");

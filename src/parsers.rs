@@ -1,11 +1,29 @@
-use super::types::*;
-
+use std::io;
 use std::ops;
 
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, line_ending, multispace1, not_line_ending, space0};
 use nom::sequence::delimited;
 use nom::IResult;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Identifier(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Expression {
+    pub identifier: Identifier,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pipe {
+    pub source: Expression,
+    pub sink: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Program {
+    pub pipe: Pipe,
+}
 
 fn spaced<'a, T>(
     parser: impl ops::Fn(&'a str) -> IResult<&'a str, T>,
@@ -37,7 +55,13 @@ fn arrow(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
-named!(pub program<&str, Program>, exact!(map!(delimited!(markup, pipe, markup), |pipe| Program { pipe })));
+named!(program<&str, Program>, exact!(map!(delimited!(markup, pipe, markup), |pipe| Program { pipe })));
+
+pub fn parse(input: &str) -> io::Result<Program> {
+    program(input)
+        .map(|(_, result)| result)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+}
 
 #[cfg(test)]
 mod tests {
