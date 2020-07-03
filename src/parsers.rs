@@ -1,9 +1,9 @@
-use std::io;
-
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, line_ending, multispace1, not_line_ending};
-
 use nom_locate::LocatedSpan;
+
+use super::errors::{Error, Result};
+
 type Span<'a> = LocatedSpan<&'a str>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,10 +60,10 @@ named!(arrow(Span) -> (), value!((), delimited!(markup, tag("|>"), markup)));
 named!(program(Span) -> Program,
        exact!(map!(delimited!(markup, pipe, markup), |pipe| Program { pipe })));
 
-pub fn parse(input: &str) -> io::Result<Program> {
+pub fn parse(input: &str) -> Result<Program> {
     program(Span::new(input))
         .map(|(_, result)| result)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+        .map_err(|e| Error::ParseError(e.to_string()))
 }
 
 #[cfg(test)]
