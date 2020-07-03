@@ -1,20 +1,20 @@
+use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, line_ending, multispace1, not_line_ending};
-use nom_locate::LocatedSpan;
+use nom::combinator::{all_consuming, complete, map, opt, value};
+use nom::multi::many0;
+use nom::sequence::{delimited, pair, preceded, terminated};
+use nom_locate::{position, LocatedSpan};
 
 use super::errors::{Error, Result};
 
 type Span<'a> = LocatedSpan<&'a str>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Identifier<'a> {
-    value: String,
-    position: Span<'a>,
-}
+type ParseResult<'a, T> = nom::IResult<Span<'a>, T>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Expression<'a> {
-    pub identifier: Identifier<'a>,
+pub struct Program<'a> {
+    pub pipe: Pipe<'a>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,46 +24,65 @@ pub struct Pipe<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Program<'a> {
-    pub pipe: Pipe<'a>,
+pub struct Expression<'a> {
+    pub identifier: Identifier<'a>,
 }
 
-named!(line(Span) -> &str,
-       map!(terminated!(alt!(not_line_ending | tag!("")), opt!(line_ending)),
-            |result| *result.fragment()));
-
-named!(comment(Span) -> &str, preceded!(tag!("#"), line));
-
-// TODO: Support non-ASCII whitespace.
-named!(whitespace(Span) -> &str,
-       map!(recognize!(multispace1), |result| *result.fragment()));
-
-named!(markup(Span) -> (), alt!(
-    value!((), many0!(alt!(whitespace | complete!(comment))))
-));
-
-named!(identifier(Span) -> Identifier, do_parse!(
-    position: position!() >>
-    value: map!(alpha1, |result| result.fragment().to_string()) >>
-    (Identifier { value, position })
-));
-
-named!(expression(Span) -> Expression,
-       map!(identifier, |identifier| Expression { identifier }));
-
-named!(pipe(Span) -> Pipe,
-       map!(pair!(expression, preceded!(arrow, expression)),
-            |(source, sink)| Pipe { source, sink }));
-
-named!(arrow(Span) -> (), value!((), delimited!(markup, tag("|>"), markup)));
-
-named!(program(Span) -> Program,
-       exact!(map!(delimited!(markup, pipe, markup), |pipe| Program { pipe })));
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Identifier<'a> {
+    value: String,
+    position: Span<'a>,
+}
 
 pub fn parse(input: &str) -> Result<Program> {
-    program(Span::new(input))
+    all_consuming(program)(Span::new(input))
         .map(|(_, result)| result)
         .map_err(|e| Error::ParseError(e.to_string()))
+}
+
+fn program(input: Span) -> ParseResult<Program> {
+    map(delimited(markup, pipe, markup), |pipe| Program { pipe })(input)
+}
+
+fn pipe(input: Span) -> ParseResult<Pipe> {
+    map(
+        pair(expression, preceded(arrow, expression)),
+        |(source, sink)| Pipe { source, sink },
+    )(input)
+}
+
+fn arrow(input: Span) -> ParseResult<()> {
+    value((), delimited(markup, tag("|>"), markup))(input)
+}
+
+fn expression(input: Span) -> ParseResult<Expression> {
+    map(identifier, |identifier| Expression { identifier })(input)
+}
+
+fn identifier(input: Span) -> ParseResult<Identifier> {
+    let (input, position) = position(input)?;
+    let (input, value) = map(alpha1, |result: Span| result.fragment().to_string())(input)?;
+    Ok((input, Identifier { value, position }))
+}
+
+fn markup(input: Span) -> ParseResult<()> {
+    value((), many0(alt((whitespace, complete(comment)))))(input)
+}
+
+fn comment(input: Span) -> ParseResult<&str> {
+    preceded(tag("#"), line)(input)
+}
+
+// TODO: Support non-ASCII whitespace.
+fn whitespace(input: Span) -> ParseResult<&str> {
+    map(multispace1, |result: Span| *result.fragment())(input)
+}
+
+fn line(input: Span) -> ParseResult<&str> {
+    map(
+        terminated(alt((not_line_ending, tag(""))), opt(line_ending)),
+        |result: Span| *result.fragment(),
+    )(input)
 }
 
 #[cfg(test)]
