@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate nom;
+#[macro_use]
+extern crate nom_locate;
 
 use std::env;
 use std::fs;
