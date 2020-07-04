@@ -1,9 +1,12 @@
 extern crate nom;
 extern crate nom_locate;
 
+mod ast;
 mod errors;
 mod interpreter;
 mod parsers;
+mod resolve;
+mod streams;
 
 use std::env;
 use std::fs;
@@ -25,7 +28,8 @@ fn main() -> Result<()> {
         2 => fs::read_to_string(&args[1]).map_err(errors::io),
         _ => Err(Error::InvalidArguments),
     }?;
-    let program = parsers::parse(&input)?;
-    interpreter::interpret(program)?;
+    let parsed_program = parsers::parse(&input)?;
+    let resolved_program = resolve::program(parsed_program)?;
+    interpreter::interpret(resolved_program)?;
     Ok(())
 }

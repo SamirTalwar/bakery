@@ -13,25 +13,32 @@ type Span<'a> = LocatedSpan<&'a str>;
 type ParseResult<'a, T> = nom::IResult<Span<'a>, T>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Program<'a> {
-    pub pipe: Pipe<'a>,
+pub struct Program {
+    pub pipe: Pipe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Pipe<'a> {
-    pub source: Expression<'a>,
-    pub sink: Expression<'a>,
+pub struct Pipe {
+    pub source: Positioned<Expression>,
+    pub sink: Positioned<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Expression<'a> {
-    pub identifier: Identifier<'a>,
+pub enum Expression {
+    Identifier(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Identifier<'a> {
-    value: String,
-    position: Span<'a>,
+pub struct Positioned<T> {
+    pub position: Position,
+    pub value: T,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+    pub offset: usize,
 }
 
 pub fn parse(input: &str) -> Result<Program> {
@@ -55,14 +62,17 @@ fn arrow(input: Span) -> ParseResult<()> {
     value((), delimited(markup, tag("|>"), markup))(input)
 }
 
-fn expression(input: Span) -> ParseResult<Expression> {
-    map(identifier, |identifier| Expression { identifier })(input)
-}
-
-fn identifier(input: Span) -> ParseResult<Identifier> {
-    let (input, position) = position(input)?;
-    let (input, value) = map(alpha1, |result: Span| result.fragment().to_string())(input)?;
-    Ok((input, Identifier { value, position }))
+fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
+    let (input, span) = position(input)?;
+    let (input, value) = map(alpha1, |result: Span| {
+        Expression::Identifier(result.fragment().to_string())
+    })(input)?;
+    let position = Position {
+        line: span.location_line() as usize,
+        column: span.get_column(),
+        offset: span.location_offset(),
+    };
+    Ok((input, Positioned { position, value }))
 }
 
 fn markup(input: Span) -> ParseResult<()> {
@@ -143,17 +153,20 @@ mod tests {
         }
 
         #[test]
-        fn identifier_matches_any_identifier(input in "[A-Za-z]+") {
+        fn expression_matches_any_identifier(input in "[A-Za-z]+") {
             let span = Span::new(&input);
-            let expected = Identifier { value: input.clone(), position: span.slice(0..0) };
-            let parsed = identifier(span)?;
+            let parsed = expression(span)?;
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Expression::Identifier(input.clone()),
+            };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
         #[test]
-        fn identifier_does_not_match_anything_else(input in "[^A-Za-z].*") {
+        fn expression_does_not_match_anything_else(input in "[^A-Za-z].*") {
             let span = Span::new(&input);
-            let parsed = identifier(span);
+            let parsed = expression(span);
             prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
         }
 
@@ -165,17 +178,13 @@ mod tests {
 
             let sink_offset = source_id.len() + 4;
             let expected = Pipe {
-                source: Expression {
-                    identifier: Identifier {
-                        value: source_id.clone(),
-                        position: span.slice(0..0),
-                    },
+                source: Positioned {
+                    position: Position { line: 1, column: 1, offset: 0 },
+                    value: Expression::Identifier(source_id.clone()),
                 },
-                sink: Expression {
-                    identifier: Identifier {
-                        value: sink_id.clone(),
-                        position: span.slice(sink_offset..sink_offset),
-                    },
+                sink: Positioned {
+                    position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
+                    value: Expression::Identifier(sink_id.clone()),
                 },
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
