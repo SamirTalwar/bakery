@@ -11,16 +11,18 @@ pub fn program(program: parsers::Program) -> Result<Program> {
     })
 }
 
-fn source(expression: parsers::Expression) -> Result<Source> {
+fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
     match expression {
-        parsers::Expression::Identifier(id) if id == "stdin" => Ok(streams::stdin()),
+        parsers::Expression::Identifier(id) if id == "stdin" => Ok(Box::new(streams::Stdin::new())),
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }
 
-fn sink(expression: parsers::Expression) -> Result<Sink> {
+fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
     match expression {
-        parsers::Expression::Identifier(id) if id == "stdout" => Ok(streams::stdout()),
+        parsers::Expression::Identifier(id) if id == "stdout" => {
+            Ok(Box::new(streams::Stdout::new()))
+        }
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }

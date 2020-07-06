@@ -1,15 +1,21 @@
 use std::boxed::Box;
 use std::io;
 
+use super::errors::Result;
+
 pub struct Program {
     pub pipe: Pipe,
 }
 
 pub struct Pipe {
-    pub source: Source,
-    pub sink: Sink,
+    pub source: Box<dyn Source>,
+    pub sink: Box<dyn Sink>,
 }
 
-pub struct Source(pub Box<dyn io::Read>);
+pub trait Source {
+    fn open(&self) -> Result<Box<dyn io::Read>>;
+}
 
-pub struct Sink(pub Box<dyn io::Write>);
+pub trait Sink {
+    fn open(&self) -> Result<Box<dyn io::Write>>;
+}
