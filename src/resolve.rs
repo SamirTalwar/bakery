@@ -13,15 +13,20 @@ pub fn program(program: parsers::Program) -> Result<Program> {
 
 fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
     match expression {
-        parsers::Expression::Identifier(id) if id == "stdin" => Ok(Box::new(streams::Stdin::new())),
+        parsers::Expression::Identifier { namespace: _, id } if id == "stdin" => {
+            Ok(Box::new(streams::Stdin::new()))
+        }
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }
 
 fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
     match expression {
-        parsers::Expression::Identifier(id) if id == "stdout" => {
+        parsers::Expression::Identifier { namespace: _, id } if id == "stdout" => {
             Ok(Box::new(streams::Stdout::new()))
+        }
+        parsers::Expression::Identifier { namespace, id } if namespace == "file" => {
+            Ok(Box::new(streams::File::new(id.to_string())))
         }
         _ => Err(Error::UnresolvedExpression(expression)),
     }

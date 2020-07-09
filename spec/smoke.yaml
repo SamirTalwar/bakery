@@ -1,22 +1,27 @@
+working-directory: .
+
 command:
-  - target/debug/bakery
+  - cargo
+  - run
+  - --quiet
 
 tests:
   - name: stdin-to-stdout
     args:
-      - spec/stdin-to-stdout.bake
+      - stdin-to-stdout.bake
     stdin: |
       Hello, world!
     stdout: |
       Hello, world!
 
   - name: stdin-to-file
-    ignored: true
     args:
-      - spec/stdin-to-file.bake
+      - stdin-to-file.bake
     stdin: |
       What's up, planet?
     files:
-      - path: output/file.out
+      - path: file.out
         contents: |
           What's up, planet?
+    revert:
+      - .

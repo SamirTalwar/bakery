@@ -1,9 +1,11 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, line_ending, multispace1, not_line_ending};
-use nom::combinator::{all_consuming, complete, map, opt, value};
-use nom::multi::many0;
+use nom::character::complete::{alpha1, line_ending, not_line_ending};
+use nom::combinator::{all_consuming, complete, map, opt, recognize, value};
+use nom::error::{make_error, ErrorKind};
+use nom::multi::{many0, many1};
 use nom::sequence::{delimited, pair, preceded, terminated};
+use nom::Slice;
 use nom_locate::{position, LocatedSpan};
 
 use super::errors::{Error, Result};
@@ -25,7 +27,7 @@ pub struct Pipe {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
-    Identifier(String),
+    Identifier { namespace: String, id: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,15 +66,30 @@ fn arrow(input: Span) -> ParseResult<()> {
 
 fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
     let (input, span) = position(input)?;
-    let (input, value) = map(alpha1, |result: Span| {
-        Expression::Identifier(result.fragment().to_string())
-    })(input)?;
+    let (input, value) = alt((namespaced_identifier, unnamespaced_identifier))(input)?;
     let position = Position {
         line: span.location_line() as usize,
         column: span.get_column(),
         offset: span.location_offset(),
     };
     Ok((input, Positioned { position, value }))
+}
+
+fn namespaced_identifier(input: Span) -> ParseResult<Expression> {
+    let (input, namespace) = map(alpha1, fragment_string)(input)?;
+    let (input, _) = tag(":")(input)?;
+    let (input, id) = map(
+        recognize(many1(complete(alphanumerisymbolic))),
+        fragment_string,
+    )(input)?;
+    Ok((input, Expression::Identifier { namespace, id }))
+}
+
+fn unnamespaced_identifier(input: Span) -> ParseResult<Expression> {
+    map(map(alpha1, fragment_string), |id| Expression::Identifier {
+        namespace: String::from(""),
+        id: id,
+    })(input)
 }
 
 fn markup(input: Span) -> ParseResult<()> {
@@ -85,21 +102,45 @@ fn comment(input: Span) -> ParseResult<&str> {
 
 // TODO: Support non-ASCII whitespace.
 fn whitespace(input: Span) -> ParseResult<&str> {
-    map(multispace1, |result: Span| *result.fragment())(input)
+    let length = (*input.fragment())
+        .chars()
+        .take_while({ |character| character.is_whitespace() })
+        .collect::<String>()
+        .len();
+    if length > 0 {
+        Ok((input.slice(length..), input.fragment().slice(..length)))
+    } else {
+        Err(nom::Err::Error(make_error(input, ErrorKind::Space)))
+    }
 }
 
 fn line(input: Span) -> ParseResult<&str> {
     map(
         terminated(alt((not_line_ending, tag(""))), opt(line_ending)),
-        |result: Span| *result.fragment(),
+        fragment,
     )(input)
+}
+
+fn alphanumerisymbolic(input: Span) -> ParseResult<char> {
+    match (*input.fragment()).chars().next() {
+        Some(character) if !character.is_whitespace() && !character.is_control() => {
+            Ok((input.slice(character.len_utf8()..), character))
+        }
+        _ => Err(nom::Err::Incomplete(nom::Needed::Size(1))),
+    }
+}
+
+fn fragment(input: Span) -> &str {
+    input.fragment()
+}
+
+fn fragment_string(input: Span) -> String {
+    input.fragment().to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use nom::Slice;
 
     use proptest;
     use proptest::collection;
@@ -107,14 +148,14 @@ mod tests {
 
     proptest! {
         #[test]
-        fn whitespace_matches_any_whitespace(input in "[ \t\r\n]+") {
+        fn whitespace_matches_any_whitespace(input in "[ \\s]+") {
             let span = Span::new(&input);
             let parsed = whitespace(span)?;
             prop_assert_eq!((span.slice(input.len()..), input.as_str()), parsed);
         }
 
         #[test]
-        fn whitespace_does_not_match_any_other_text(input in "[^ \t\r\n]+.*") {
+        fn whitespace_does_not_match_any_other_text(input in "[^ \\s]+.*") {
             let span = Span::new(&input);
             let parsed = whitespace(span);
             prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
@@ -145,7 +186,7 @@ mod tests {
         }
 
         #[test]
-        fn markup_matches_comments_and_whitespace(lines in collection::vec("[ \t\r\n]*|#\\PC*", 0..5)) {
+        fn markup_matches_comments_and_whitespace(lines in collection::vec("[ \\s]*|#\\PC*", 0..5)) {
             let input = lines.join("\n");
             let span = Span::new(&input);
             let parsed = markup(span)?;
@@ -158,9 +199,25 @@ mod tests {
             let parsed = expression(span)?;
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
-                value: Expression::Identifier(input.clone()),
+                value: Expression::Identifier {
+                    namespace: String::from(""),
+                    id: input.clone(),
+                },
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
+        }
+
+        #[test]
+        fn expression_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+", rest in "\\s\\PC*") {
+            let expression_string = namespace.clone() + ":" + &id;
+            let input = expression_string.clone() + &rest;
+            let span = Span::new(&input);
+            let parsed = expression(span)?;
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Expression::Identifier { namespace, id },
+            };
+            prop_assert_eq!((span.slice(expression_string.len()..), expected), parsed);
         }
 
         #[test]
@@ -180,11 +237,17 @@ mod tests {
             let expected = Pipe {
                 source: Positioned {
                     position: Position { line: 1, column: 1, offset: 0 },
-                    value: Expression::Identifier(source_id.clone()),
+                    value: Expression::Identifier {
+                        namespace: String::from(""),
+                        id: source_id,
+                    },
                 },
                 sink: Positioned {
                     position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
-                    value: Expression::Identifier(sink_id.clone()),
+                    value: Expression::Identifier {
+                        namespace: String::from(""),
+                        id: sink_id,
+                    },
                 },
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
