@@ -104,7 +104,7 @@ fn comment(input: Span) -> ParseResult<&str> {
 fn whitespace(input: Span) -> ParseResult<&str> {
     let length = (*input.fragment())
         .chars()
-        .take_while({ |character| character.is_whitespace() })
+        .take_while(|character| character.is_whitespace())
         .collect::<String>()
         .len();
     if length > 0 {
