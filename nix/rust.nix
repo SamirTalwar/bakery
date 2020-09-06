@@ -1,7 +1,6 @@
-
 let
   sources = import ./sources.nix;
-  pkgs = import sources.nixpkgs {};
+  pkgs = import sources.nixpkgs { };
   platform = pkgs.rustPlatform;
 in
 {

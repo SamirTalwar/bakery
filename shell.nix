@@ -1,8 +1,8 @@
 let
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs {};
+  pkgs = import sources.nixpkgs { };
   rust = import ./nix/rust.nix;
-  smoke = (import sources.smoke {}).smoke;
+  smoke = (import sources.smoke { }).smoke;
 in
 pkgs.mkShell {
   name = "bakery";
@@ -14,5 +14,6 @@ pkgs.mkShell {
     rust.rustfmt
     smoke
     pkgs.niv
-  ] ++ (if pkgs.stdenv.isDarwin then [pkgs.darwin.apple_sdk.frameworks.Security] else []);
+    pkgs.nixpkgs-fmt
+  ] ++ (if pkgs.stdenv.isDarwin then [ pkgs.darwin.apple_sdk.frameworks.Security ] else [ ]);
 }
