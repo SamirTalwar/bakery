@@ -6,6 +6,7 @@ let
 in
 {
   cargo = platform.rust.cargo;
+  rls = pkgs.rls;
   rustc = platform.rust.rustc;
   rustfmt = pkgs.rustfmt;
   src = platform.rustcSrc;
