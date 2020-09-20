@@ -2,7 +2,7 @@ let
   sources = import ./nix/sources.nix;
   pkgs = import sources.nixpkgs { };
   rust = import ./nix/rust.nix;
-  smoke = (import sources.smoke { }).smoke;
+  smoke = (import sources.smoke { inherit pkgs; }).smoke;
 in
 pkgs.mkShell {
   name = "bakery";
