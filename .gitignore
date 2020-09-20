@@ -1,3 +1,5 @@
+# Direnv
+.direnv
 .envrc.local
 
 # Rust
