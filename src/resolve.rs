@@ -26,7 +26,7 @@ fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
             Ok(Box::new(streams::Stdout::new()))
         }
         parsers::Expression::Identifier { namespace, id } if namespace == "file" => {
-            Ok(Box::new(streams::File::new(id.to_string())))
+            Ok(Box::new(streams::File::new(id)))
         }
         _ => Err(Error::UnresolvedExpression(expression)),
     }

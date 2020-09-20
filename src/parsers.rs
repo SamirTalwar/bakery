@@ -88,7 +88,7 @@ fn namespaced_identifier(input: Span) -> ParseResult<Expression> {
 fn unnamespaced_identifier(input: Span) -> ParseResult<Expression> {
     map(map(alpha1, fragment_string), |id| Expression::Identifier {
         namespace: String::from(""),
-        id: id,
+        id,
     })(input)
 }
 
@@ -142,7 +142,6 @@ fn fragment_string(input: Span) -> String {
 mod tests {
     use super::*;
 
-    use proptest;
     use proptest::collection;
     use proptest::prelude::*;
 

@@ -7,6 +7,6 @@ pub fn interpret(program: Program) -> Result<()> {
     let mut source = program.pipe.source.open()?;
     source.read_to_end(&mut buffer).map_err(errors::io)?;
     let mut sink = program.pipe.sink.open()?;
-    sink.write_all(&mut buffer[..]).map_err(errors::io)?;
+    sink.write_all(&buffer[..]).map_err(errors::io)?;
     Ok(())
 }
