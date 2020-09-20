@@ -30,6 +30,6 @@ fn main() -> Result<()> {
     }?;
     let parsed_program = parsers::parse(&input)?;
     let resolved_program = resolve::program(parsed_program)?;
-    interpreter::interpret(resolved_program)?;
+    interpreter::interpret(&resolved_program)?;
     Ok(())
 }

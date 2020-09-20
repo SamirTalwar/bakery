@@ -46,7 +46,7 @@ pub struct Position {
 pub fn parse(input: &str) -> Result<Program> {
     all_consuming(program)(Span::new(input))
         .map(|(_, result)| result)
-        .map_err(|e| Error::ParseError(e.to_string()))
+        .map_err(|e| Error::Parse(e.to_string()))
 }
 
 fn program(input: Span) -> ParseResult<Program> {
@@ -135,7 +135,7 @@ fn fragment(input: Span) -> &str {
 }
 
 fn fragment_string(input: Span) -> String {
-    input.fragment().to_string()
+    (*input.fragment()).to_string()
 }
 
 #[cfg(test)]

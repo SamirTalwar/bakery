@@ -8,11 +8,11 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     InvalidArguments,
-    IOError(io::Error),
-    ParseError(String),
+    IO(io::Error),
+    Parse(String),
     UnresolvedExpression(Expression),
 }
 
 pub fn io(error: io::Error) -> Error {
-    Error::IOError(error)
+    Error::IO(error)
 }
