@@ -5,6 +5,7 @@ let
 in
 {
   cargo = platform.rust.cargo;
+  clippy = pkgs.rustPackages.clippy;
   rls = pkgs.rls;
   rustc = platform.rust.rustc;
   rustfmt = pkgs.rustfmt;
