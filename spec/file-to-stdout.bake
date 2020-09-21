@@ -1,0 +1,3 @@
+#!/usr/bin/env bake
+
+file:fixtures/file.in |> stdout

@@ -25,3 +25,9 @@ tests:
           What's up, planet?
     revert:
       - .
+
+  - name: file-to-stdout
+    args:
+      - file-to-stdout.bake
+    stdout:
+      file: fixtures/file.in

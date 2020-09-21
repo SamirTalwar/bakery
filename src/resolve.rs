@@ -16,6 +16,9 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
         parsers::Expression::Identifier { namespace: _, id } if id == "stdin" => {
             Ok(Box::new(streams::Stdin::new()))
         }
+        parsers::Expression::Identifier { namespace, id } if namespace == "file" => {
+            Ok(Box::new(streams::File::new(id)))
+        }
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }

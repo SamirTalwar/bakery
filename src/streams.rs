@@ -44,6 +44,13 @@ impl File {
     }
 }
 
+impl Source for File {
+    fn open(&self) -> Result<Box<dyn io::Read>> {
+        let file = fs::File::open(&self.path).map_err(errors::io)?;
+        Ok(Box::new(file))
+    }
+}
+
 impl Sink for File {
     fn open(&self) -> Result<Box<dyn io::Write>> {
         let file = fs::File::create(&self.path).map_err(errors::io)?;
