@@ -14,6 +14,7 @@ pkgs.mkShell {
     rust.rustc
     rust.rustfmt
     smoke
+    pkgs.hello
     pkgs.niv
     pkgs.nixpkgs-fmt
   ] ++ (if pkgs.stdenv.isDarwin then [ pkgs.darwin.apple_sdk.frameworks.Security ] else [ ]);

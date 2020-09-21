@@ -11,6 +11,7 @@ pub enum Error {
     IO(io::Error),
     Parse(String),
     UnresolvedExpression(Expression),
+    CouldNotOpenSource(String),
 }
 
 pub fn io(error: io::Error) -> Error {

@@ -4,11 +4,27 @@ use super::parsers;
 use super::streams;
 
 pub fn program(program: parsers::Program) -> Result<Program> {
-    let source = self::source(program.pipe.source.value)?;
-    let sink = self::sink(program.pipe.sink.value)?;
-    Ok(Program {
-        pipe: Pipe { source, sink },
-    })
+    match *program.expression.value {
+        expression
+        @
+        parsers::Expression::Identifier {
+            namespace: _,
+            id: _,
+        } => {
+            let source = self::source(expression)?;
+            let sink = Box::new(streams::Stdout::new());
+            Ok(Program {
+                pipe: Pipe { source, sink },
+            })
+        }
+        parsers::Expression::Pipe { source, sink } => {
+            let source = self::source(*source.value)?;
+            let sink = self::sink(*sink.value)?;
+            Ok(Program {
+                pipe: Pipe { source, sink },
+            })
+        }
+    }
 }
 
 fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
@@ -18,6 +34,9 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
         }
         parsers::Expression::Identifier { namespace, id } if namespace == "file" => {
             Ok(Box::new(streams::File::new(id)))
+        }
+        parsers::Expression::Identifier { namespace, id } if namespace == "" => {
+            Ok(Box::new(streams::Process::new(id)))
         }
         _ => Err(Error::UnresolvedExpression(expression)),
     }

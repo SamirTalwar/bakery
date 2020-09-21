@@ -16,24 +16,25 @@ type ParseResult<'a, T> = nom::IResult<Span<'a>, T>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
-    pub pipe: Pipe,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Pipe {
-    pub source: Positioned<Expression>,
-    pub sink: Positioned<Expression>,
+    pub expression: Positioned<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
-    Identifier { namespace: String, id: String },
+    Identifier {
+        namespace: String,
+        id: String,
+    },
+    Pipe {
+        source: Positioned<Expression>,
+        sink: Positioned<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Positioned<T> {
     pub position: Position,
-    pub value: T,
+    pub value: Box<T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,29 +51,53 @@ pub fn parse(input: &str) -> Result<Program> {
 }
 
 fn program(input: Span) -> ParseResult<Program> {
-    map(delimited(markup, pipe, markup), |pipe| Program { pipe })(input)
-}
-
-fn pipe(input: Span) -> ParseResult<Pipe> {
-    map(
-        pair(expression, preceded(arrow, expression)),
-        |(source, sink)| Pipe { source, sink },
-    )(input)
+    map(delimited(markup, expression, markup), |expression| {
+        Program { expression }
+    })(input)
 }
 
 fn arrow(input: Span) -> ParseResult<()> {
     value((), delimited(markup, tag("|>"), markup))(input)
 }
 
+fn positioned<'a, T, F>(parser: F) -> impl Fn(Span<'a>) -> ParseResult<Positioned<T>>
+where
+    F: Fn(Span<'a>) -> ParseResult<T> + 'a,
+{
+    move |input| {
+        let (input, span) = position(input)?;
+        let position = Position {
+            line: span.location_line() as usize,
+            column: span.get_column(),
+            offset: span.location_offset(),
+        };
+        let (input, value) = parser(input)?;
+        Ok((
+            input,
+            Positioned {
+                position,
+                value: Box::new(value),
+            },
+        ))
+    }
+}
+
 fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
-    let (input, span) = position(input)?;
-    let (input, value) = alt((namespaced_identifier, unnamespaced_identifier))(input)?;
-    let position = Position {
-        line: span.location_line() as usize,
-        column: span.get_column(),
-        offset: span.location_offset(),
-    };
-    Ok((input, Positioned { position, value }))
+    positioned(alt((pipe, identifier)))(input)
+}
+
+fn pipe(input: Span) -> ParseResult<Expression> {
+    map(
+        pair(
+            positioned(identifier),
+            preceded(arrow, positioned(identifier)),
+        ),
+        |(source, sink)| Expression::Pipe { source, sink },
+    )(input)
+}
+
+fn identifier(input: Span) -> ParseResult<Expression> {
+    alt((namespaced_identifier, unnamespaced_identifier))(input)
 }
 
 fn namespaced_identifier(input: Span) -> ParseResult<Expression> {
@@ -198,10 +223,10 @@ mod tests {
             let parsed = expression(span)?;
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
-                value: Expression::Identifier {
+                value: Box::new(Expression::Identifier {
                     namespace: String::from(""),
                     id: input.clone(),
-                },
+                }),
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
@@ -214,7 +239,7 @@ mod tests {
             let parsed = expression(span)?;
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
-                value: Expression::Identifier { namespace, id },
+                value: Box::new(Expression::Identifier { namespace, id }),
             };
             prop_assert_eq!((span.slice(expression_string.len()..), expected), parsed);
         }
@@ -227,27 +252,30 @@ mod tests {
         }
 
         #[test]
-        fn pipe_parses_a_pipe_from_source_to_sink(source_id in "[A-Za-z]+", sink_id in "[A-Za-z]+") {
+        fn expression_parses_a_pipe_from_source_to_sink(source_id in "[A-Za-z]+", sink_id in "[A-Za-z]+") {
             let input = source_id.clone() + " |> " + &sink_id;
             let span = Span::new(&input);
-            let parsed = pipe(span)?;
+            let parsed = expression(span)?;
 
             let sink_offset = source_id.len() + 4;
-            let expected = Pipe {
-                source: Positioned {
-                    position: Position { line: 1, column: 1, offset: 0 },
-                    value: Expression::Identifier {
-                        namespace: String::from(""),
-                        id: source_id,
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Pipe {
+                    source: Positioned {
+                        position: Position { line: 1, column: 1, offset: 0 },
+                        value: Box::new(Expression::Identifier {
+                            namespace: String::from(""),
+                            id: source_id,
+                        }),
                     },
-                },
-                sink: Positioned {
-                    position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
-                    value: Expression::Identifier {
-                        namespace: String::from(""),
-                        id: sink_id,
+                    sink: Positioned {
+                        position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
+                        value: Box::new(Expression::Identifier {
+                            namespace: String::from(""),
+                            id: sink_id,
+                        }),
                     },
-                },
+                }),
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }

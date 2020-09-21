@@ -31,3 +31,9 @@ tests:
       - file-to-stdout.bake
     stdout:
       file: fixtures/file.in
+
+  - name: run-simple-program
+    args:
+      - run-simple-program.bake
+    stdout: |
+      Hello, world!
