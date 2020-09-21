@@ -1,0 +1,3 @@
+#!/usr/bin/env bake
+
+"This is some static text." |> stdout

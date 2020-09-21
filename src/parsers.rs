@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, line_ending, not_line_ending};
+use nom::character::complete::{alpha1, line_ending, none_of, not_line_ending};
 use nom::combinator::{all_consuming, complete, map, opt, recognize, value};
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, many1};
@@ -24,6 +24,9 @@ pub enum Expression {
     Identifier {
         namespace: String,
         id: String,
+    },
+    Text {
+        contents: String,
     },
     Pipe {
         source: Positioned<Expression>,
@@ -83,14 +86,23 @@ where
 }
 
 fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
-    positioned(alt((pipe, identifier)))(input)
+    positioned(alt((pipe, text, identifier)))(input)
+}
+
+fn text(input: Span) -> ParseResult<Expression> {
+    map(
+        delimited(tag("\""), many0(none_of("\"")), tag("\"")),
+        |contents| Expression::Text {
+            contents: contents.into_iter().collect(),
+        },
+    )(input)
 }
 
 fn pipe(input: Span) -> ParseResult<Expression> {
     map(
         pair(
-            positioned(identifier),
-            preceded(arrow, positioned(identifier)),
+            positioned(alt((text, identifier))),
+            preceded(arrow, positioned(alt((text, identifier)))),
         ),
         |(source, sink)| Expression::Pipe { source, sink },
     )(input)
@@ -245,10 +257,16 @@ mod tests {
         }
 
         #[test]
-        fn expression_does_not_match_anything_else(input in "[^A-Za-z].*") {
+        fn expression_matches_a_text_string(text in "[^\"]*", rest in "\\PC*") {
+            let text_string = "\"".to_string() + &text + "\"";
+            let input = text_string.clone() + &rest;
             let span = Span::new(&input);
-            let parsed = expression(span);
-            prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
+            let parsed = expression(span)?;
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Text { contents: text }),
+            };
+            prop_assert_eq!((span.slice(text_string.len()..), expected), parsed);
         }
 
         #[test]
@@ -278,6 +296,13 @@ mod tests {
                 }),
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
+        }
+
+        #[test]
+        fn expression_does_not_match_anything_else(input in "[^A-Za-z\"].*") {
+            let span = Span::new(&input);
+            let parsed = expression(span);
+            prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
         }
     }
 }

@@ -13,9 +13,9 @@ pub struct Pipe {
 }
 
 pub trait Source {
-    fn open(&self) -> Result<Box<dyn io::Read>>;
+    fn open<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>>;
 }
 
 pub trait Sink {
-    fn open(&self) -> Result<Box<dyn io::Write>>;
+    fn open<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>>;
 }

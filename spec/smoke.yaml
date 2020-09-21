@@ -37,3 +37,9 @@ tests:
       - run-simple-program.bake
     stdout: |
       Hello, world!
+
+  - name: write-static-text-to-stdout
+    args:
+      - write-static-text-to-stdout.bake
+    stdout: |
+      This is some static text.

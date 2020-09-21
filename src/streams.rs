@@ -7,6 +7,24 @@ use super::ast::*;
 use super::errors;
 use super::errors::{Error, Result};
 
+pub struct Text {
+    contents: String,
+}
+
+impl Text {
+    pub fn new(contents: String) -> Self {
+        Text {
+            contents: contents + "\n",
+        }
+    }
+}
+
+impl Source for Text {
+    fn open<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+        Ok(Box::new((&self.contents).as_bytes()))
+    }
+}
+
 pub struct Stdin {}
 
 impl Stdin {

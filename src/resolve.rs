@@ -5,6 +5,13 @@ use super::streams;
 
 pub fn program(program: parsers::Program) -> Result<Program> {
     match *program.expression.value {
+        parsers::Expression::Text { contents } => {
+            let source = Box::new(streams::Text::new(contents));
+            let sink = Box::new(streams::Stdout::new());
+            Ok(Program {
+                pipe: Pipe { source, sink },
+            })
+        }
         expression
         @
         parsers::Expression::Identifier {
@@ -29,6 +36,7 @@ pub fn program(program: parsers::Program) -> Result<Program> {
 
 fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
     match expression {
+        parsers::Expression::Text { contents } => Ok(Box::new(streams::Text::new(contents))),
         parsers::Expression::Identifier { namespace: _, id } if id == "stdin" => {
             Ok(Box::new(streams::Stdin::new()))
         }
