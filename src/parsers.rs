@@ -21,17 +21,20 @@ pub struct Program {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
-    Identifier {
-        namespace: String,
-        id: String,
-    },
-    Text {
-        contents: String,
+    Command {
+        command: Argument,
+        arguments: Vec<Argument>,
     },
     Pipe {
         source: Positioned<Expression>,
         sink: Positioned<Expression>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Argument {
+    Identifier { namespace: String, id: String },
+    Text { contents: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,44 +89,56 @@ where
 }
 
 fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
-    positioned(alt((pipe, text, identifier)))(input)
+    positioned(alt((pipe, command)))(input)
 }
 
-fn text(input: Span) -> ParseResult<Expression> {
+fn pipe(input: Span) -> ParseResult<Expression> {
+    map(
+        pair(positioned(command), preceded(arrow, positioned(command))),
+        |(source, sink)| Expression::Pipe { source, sink },
+    )(input)
+}
+
+fn command(input: Span) -> ParseResult<Expression> {
+    let (input, command) = argument(input)?;
+    Ok((
+        input,
+        Expression::Command {
+            command,
+            arguments: vec![],
+        },
+    ))
+}
+
+fn argument(input: Span) -> ParseResult<Argument> {
+    alt((text, identifier))(input)
+}
+
+fn text(input: Span) -> ParseResult<Argument> {
     map(
         delimited(tag("\""), many0(none_of("\"")), tag("\"")),
-        |contents| Expression::Text {
+        |contents| Argument::Text {
             contents: contents.into_iter().collect(),
         },
     )(input)
 }
 
-fn pipe(input: Span) -> ParseResult<Expression> {
-    map(
-        pair(
-            positioned(alt((text, identifier))),
-            preceded(arrow, positioned(alt((text, identifier)))),
-        ),
-        |(source, sink)| Expression::Pipe { source, sink },
-    )(input)
-}
-
-fn identifier(input: Span) -> ParseResult<Expression> {
+fn identifier(input: Span) -> ParseResult<Argument> {
     alt((namespaced_identifier, unnamespaced_identifier))(input)
 }
 
-fn namespaced_identifier(input: Span) -> ParseResult<Expression> {
+fn namespaced_identifier(input: Span) -> ParseResult<Argument> {
     let (input, namespace) = map(alpha1, fragment_string)(input)?;
     let (input, _) = tag(":")(input)?;
     let (input, id) = map(
         recognize(many1(complete(alphanumerisymbolic))),
         fragment_string,
     )(input)?;
-    Ok((input, Expression::Identifier { namespace, id }))
+    Ok((input, Argument::Identifier { namespace, id }))
 }
 
-fn unnamespaced_identifier(input: Span) -> ParseResult<Expression> {
-    map(map(alpha1, fragment_string), |id| Expression::Identifier {
+fn unnamespaced_identifier(input: Span) -> ParseResult<Argument> {
+    map(map(alpha1, fragment_string), |id| Argument::Identifier {
         namespace: String::from(""),
         id,
     })(input)
@@ -230,42 +245,36 @@ mod tests {
         }
 
         #[test]
-        fn expression_matches_any_identifier(input in "[A-Za-z]+") {
+        fn argument_matches_any_identifier(input in "[A-Za-z]+") {
             let span = Span::new(&input);
-            let parsed = expression(span)?;
-            let expected = Positioned {
-                position: Position { line: 1, column: 1, offset: 0 },
-                value: Box::new(Expression::Identifier {
-                    namespace: String::from(""),
-                    id: input.clone(),
-                }),
+            let parsed = argument(span)?;
+
+            let expected = Argument::Identifier {
+                namespace: String::from(""),
+                id: input.clone(),
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
         #[test]
-        fn expression_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+", rest in "\\s\\PC*") {
+        fn argument_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+", rest in "\\s\\PC*") {
             let expression_string = namespace.clone() + ":" + &id;
             let input = expression_string.clone() + &rest;
             let span = Span::new(&input);
-            let parsed = expression(span)?;
-            let expected = Positioned {
-                position: Position { line: 1, column: 1, offset: 0 },
-                value: Box::new(Expression::Identifier { namespace, id }),
-            };
+            let parsed = argument(span)?;
+
+            let expected = Argument::Identifier { namespace, id };
             prop_assert_eq!((span.slice(expression_string.len()..), expected), parsed);
         }
 
         #[test]
-        fn expression_matches_a_text_string(text in "[^\"]*", rest in "\\PC*") {
+        fn argument_matches_a_text_string(text in "[^\"]*", rest in "\\PC*") {
             let text_string = "\"".to_string() + &text + "\"";
             let input = text_string.clone() + &rest;
             let span = Span::new(&input);
-            let parsed = expression(span)?;
-            let expected = Positioned {
-                position: Position { line: 1, column: 1, offset: 0 },
-                value: Box::new(Expression::Text { contents: text }),
-            };
+            let parsed = argument(span)?;
+
+            let expected = Argument::Text { contents: text };
             prop_assert_eq!((span.slice(text_string.len()..), expected), parsed);
         }
 
@@ -281,21 +290,44 @@ mod tests {
                 value: Box::new(Expression::Pipe {
                     source: Positioned {
                         position: Position { line: 1, column: 1, offset: 0 },
-                        value: Box::new(Expression::Identifier {
-                            namespace: String::from(""),
-                            id: source_id,
+                        value: Box::new(Expression::Command {
+                            command: Argument::Identifier {
+                                namespace: String::from(""),
+                                id: source_id,
+                            },
+                            arguments: vec![],
                         }),
                     },
                     sink: Positioned {
                         position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
-                        value: Box::new(Expression::Identifier {
-                            namespace: String::from(""),
-                            id: sink_id,
+                        value: Box::new(Expression::Command {
+                            command: Argument::Identifier {
+                                namespace: String::from(""),
+                                id: sink_id,
+                            },
+                            arguments: vec![],
                         }),
                     },
                 }),
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
+        }
+
+        #[test]
+        fn expression_matches_a_command_with_no_arguments(id in "[A-Za-z]+", rest in "\\s\\PC*") {
+            let offset = id.len();
+            let input = id.clone() + &rest;
+            let span = Span::new(&input);
+            let parsed = expression(span)?;
+
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Command {
+                    command: Argument::Identifier { namespace: String::from(""), id },
+                    arguments: vec![],
+                })
+            };
+            prop_assert_eq!((span.slice(offset..), expected), parsed);
         }
 
         #[test]
