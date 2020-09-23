@@ -79,17 +79,19 @@ impl Sink for File {
 
 pub struct Process {
     command: String,
+    arguments: Vec<String>,
 }
 
 impl Process {
-    pub fn new(command: String) -> Self {
-        Process { command }
+    pub fn new(command: String, arguments: Vec<String>) -> Self {
+        Process { command, arguments }
     }
 }
 
 impl Source for Process {
     fn open(&self) -> Result<Box<dyn io::Read>> {
         let child = process::Command::new(&self.command)
+            .args(&self.arguments)
             .stdout(process::Stdio::piped())
             .spawn()
             .map_err(errors::io)?;

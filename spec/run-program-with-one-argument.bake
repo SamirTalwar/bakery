@@ -1,0 +1,3 @@
+#!/usr/bin/env bake
+
+echo "This is an argument."

@@ -18,6 +18,7 @@ pkgs.mkShell {
     pkgs.nixpkgs-fmt
 
     # Testing
+    pkgs.coreutils
     pkgs.hello
     pkgs.zsh
   ] ++ (if pkgs.stdenv.isDarwin then [ pkgs.darwin.apple_sdk.frameworks.Security ] else [ ]);

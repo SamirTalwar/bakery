@@ -101,17 +101,12 @@ fn pipe(input: Span) -> ParseResult<Expression> {
 
 fn command(input: Span) -> ParseResult<Expression> {
     let (input, command) = argument(input)?;
-    Ok((
-        input,
-        Expression::Command {
-            command,
-            arguments: vec![],
-        },
-    ))
+    let (input, arguments) = many0(argument)(input)?;
+    Ok((input, Expression::Command { command, arguments }))
 }
 
 fn argument(input: Span) -> ParseResult<Argument> {
-    alt((text, identifier))(input)
+    delimited(markup, alt((text, identifier)), markup)(input)
 }
 
 fn text(input: Span) -> ParseResult<Argument> {
@@ -257,25 +252,23 @@ mod tests {
         }
 
         #[test]
-        fn argument_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+", rest in "\\s\\PC*") {
-            let expression_string = namespace.clone() + ":" + &id;
-            let input = expression_string.clone() + &rest;
+        fn argument_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+") {
+            let input = namespace.clone() + ":" + &id;
             let span = Span::new(&input);
             let parsed = argument(span)?;
 
             let expected = Argument::Identifier { namespace, id };
-            prop_assert_eq!((span.slice(expression_string.len()..), expected), parsed);
+            prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
         #[test]
-        fn argument_matches_a_text_string(text in "[^\"]*", rest in "\\PC*") {
-            let text_string = "\"".to_string() + &text + "\"";
-            let input = text_string.clone() + &rest;
+        fn argument_matches_a_text_string(text in "[^\"]*") {
+            let input = "\"".to_string() + &text + "\"";
             let span = Span::new(&input);
             let parsed = argument(span)?;
 
             let expected = Argument::Text { contents: text };
-            prop_assert_eq!((span.slice(text_string.len()..), expected), parsed);
+            prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
         #[test]
@@ -314,16 +307,15 @@ mod tests {
         }
 
         #[test]
-        fn expression_matches_a_command_with_no_arguments(id in "[A-Za-z]+", rest in "\\s\\PC*") {
+        fn expression_matches_a_command_with_no_arguments(id in "[A-Za-z]+") {
             let offset = id.len();
-            let input = id.clone() + &rest;
-            let span = Span::new(&input);
+            let span = Span::new(&id);
             let parsed = expression(span)?;
 
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
                 value: Box::new(Expression::Command {
-                    command: Argument::Identifier { namespace: String::from(""), id },
+                    command: Argument::Identifier { namespace: String::from(""), id: id.clone() },
                     arguments: vec![],
                 })
             };
@@ -331,7 +323,29 @@ mod tests {
         }
 
         #[test]
-        fn expression_does_not_match_anything_else(input in "[^A-Za-z\"].*") {
+        fn expression_matches_a_command_with_some_arguments(
+            arguments in collection::vec("[A-Za-z]+", 1..5),
+            spaces in collection::vec("\\s+", 5),
+        ) {
+            let input = arguments.iter().zip(spaces.iter()).flat_map(|(arg, space)| vec![arg, space]).cloned().collect::<String>();
+            let span = Span::new(&input);
+            let parsed = expression(span)?;
+
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Command {
+                    command: Argument::Identifier { namespace: String::from(""), id: arguments[0].clone() },
+                    arguments: arguments.iter().skip(1).map(|id| Argument::Identifier {
+                        namespace: String::from(""),
+                        id: id.to_string(),
+                    }).collect(),
+                })
+            };
+            prop_assert_eq!((span.slice(input.len()..), expected), parsed);
+        }
+
+        #[test]
+        fn expression_does_not_match_anything_else(input in "\\s*[^\\sA-Za-z\"].*") {
             let span = Span::new(&input);
             let parsed = expression(span);
             prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);

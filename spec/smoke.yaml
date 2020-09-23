@@ -32,14 +32,20 @@ tests:
     stdout:
       file: fixtures/file.in
 
+  - name: write-static-text-to-stdout
+    args:
+      - write-static-text-to-stdout.bake
+    stdout: |
+      This is some static text.
+
   - name: run-simple-program
     args:
       - run-simple-program.bake
     stdout: |
       Hello, world!
 
-  - name: write-static-text-to-stdout
+  - name: run-program-with-one-argument
     args:
-      - write-static-text-to-stdout.bake
+      - run-program-with-one-argument.bake
     stdout: |
-      This is some static text.
+      This is an argument.
