@@ -7,7 +7,6 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidArguments,
     IO(io::Error),
     Parse(String),
     UnresolvedExpression(Expression),

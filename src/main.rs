@@ -1,3 +1,4 @@
+extern crate argh;
 extern crate nom;
 extern crate nom_locate;
 
@@ -8,25 +9,32 @@ mod parsers;
 mod resolve;
 mod streams;
 
-use std::env;
 use std::fs;
 use std::io;
 use std::io::Read;
 
-use errors::{Error, Result};
+use argh::FromArgs;
+
+use errors::Result;
+
+#[derive(FromArgs)]
+#[argh(description = "Cakes, not baking.")]
+struct Args {
+    #[argh(positional)]
+    script: Option<String>,
+}
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let input = match args.len() {
-        1 => {
+    let args: Args = argh::from_env();
+    let input = match args.script {
+        None => {
             let mut buffer = String::new();
             io::stdin()
                 .read_to_string(&mut buffer)
                 .map_err(errors::io)?;
             Ok(buffer)
         }
-        2 => fs::read_to_string(&args[1]).map_err(errors::io),
-        _ => Err(Error::InvalidArguments),
+        Some(path) => fs::read_to_string(&path).map_err(errors::io),
     }?;
     let parsed_program = parsers::parse(&input)?;
     let resolved_program = resolve::program(parsed_program)?;

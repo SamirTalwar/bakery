@@ -14,7 +14,10 @@ echo >&2
 echo >&2 '> cargo clippy'
 cargo clippy --tests -- \
   -D clippy::all \
-  -D clippy::pedantic -A clippy::match_wildcard_for_single_variants -A clippy::wildcard_imports
+  -D clippy::pedantic \
+    -A clippy::default-trait-access \
+    -A clippy::match_wildcard_for_single_variants \
+    -A clippy::wildcard_imports
 echo >&2
 
 echo >&2 '> rustfmt'
