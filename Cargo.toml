@@ -11,4 +11,4 @@ nom = "5.1.2"
 nom_locate = "2.0.0"
 
 [dev-dependencies]
-proptest = "0.9.5"
+proptest = "0.10.1"
