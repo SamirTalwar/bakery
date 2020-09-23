@@ -20,11 +20,11 @@ tests:
     stdin: |
       What's up, planet?
     files:
-      - path: file.out
+      - path: output/file.out
         contents: |
           What's up, planet?
     revert:
-      - .
+      - output
 
   - name: file-to-stdout
     args:
