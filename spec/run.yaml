@@ -1,0 +1,24 @@
+working-directory: .
+
+command:
+  - cargo
+  - run
+  - --quiet
+  - --
+  - run
+
+tests:
+  - name: run-script
+    args:
+      - stdin-to-stdout.bake
+    stdin: |
+      This is a test.
+    stdout: |
+      This is a test.
+
+tests:
+  - name: run-script-from-stdin
+    stdin: |
+      echo "Testing, testing..."
+    stdout: |
+      Testing, testing...

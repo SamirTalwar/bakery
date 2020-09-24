@@ -1,3 +1,0 @@
-#!/usr/bin/env bake
-
-stdin |> file:output/file.out

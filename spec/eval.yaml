@@ -4,11 +4,14 @@ command:
   - cargo
   - run
   - --quiet
+  - --
+  - eval
 
 tests:
   - name: stdin-to-stdout
     args:
-      - stdin-to-stdout.bake
+      - |
+        stdin |> stdout
     stdin: |
       Hello, world!
     stdout: |
@@ -16,7 +19,8 @@ tests:
 
   - name: stdin-to-file
     args:
-      - stdin-to-file.bake
+      - |
+        stdin |> file:output/file.out
     stdin: |
       What's up, planet?
     files:
@@ -28,24 +32,28 @@ tests:
 
   - name: file-to-stdout
     args:
-      - file-to-stdout.bake
+      - |
+        file:fixtures/file.in |> stdout
     stdout:
       file: fixtures/file.in
 
   - name: write-static-text-to-stdout
     args:
-      - write-static-text-to-stdout.bake
+      - |
+        "This is some static text." |> stdout
     stdout: |
       This is some static text.
 
   - name: run-simple-program
     args:
-      - run-simple-program.bake
+      - |
+        hello
     stdout: |
       Hello, world!
 
   - name: run-program-with-one-argument
     args:
-      - run-program-with-one-argument.bake
+      - |
+        echo "This is an argument."
     stdout: |
       This is an argument.
