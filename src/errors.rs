@@ -12,6 +12,7 @@ pub enum Error {
     UnresolvedExpression(Expression),
     InvalidArgument(Token),
     CouldNotOpenSource(String),
+    CouldNotOpenSink(String),
 }
 
 pub fn io(error: io::Error) -> Error {

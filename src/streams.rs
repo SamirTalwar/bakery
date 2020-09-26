@@ -101,3 +101,17 @@ impl Source for Process {
         }
     }
 }
+
+impl Sink for Process {
+    fn open(&self) -> Result<Box<dyn io::Write>> {
+        let child = process::Command::new(&self.command)
+            .args(&self.arguments)
+            .stdin(process::Stdio::piped())
+            .spawn()
+            .map_err(errors::io)?;
+        match child.stdin {
+            None => Err(Error::CouldNotOpenSink("process".to_string())),
+            Some(stdin) => Ok(Box::new(stdin)),
+        }
+    }
+}

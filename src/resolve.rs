@@ -69,6 +69,19 @@ fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
             command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
+        parsers::Expression::Command {
+            command: parsers::Token::Identifier { namespace, id },
+            arguments,
+        } if namespace == "" => {
+            let text_arguments = arguments
+                .into_iter()
+                .map(|argument| match argument {
+                    parsers::Token::Text { contents } => Ok(contents),
+                    _ => Err(Error::InvalidArgument(argument)),
+                })
+                .collect::<Result<Vec<String>>>()?;
+            Ok(Box::new(streams::Process::new(id, text_arguments)))
+        }
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }

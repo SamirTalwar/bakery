@@ -64,3 +64,10 @@ tests:
         echo "This is an argument." "This is another argument."
     stdout: |
       This is an argument. This is another argument.
+
+  - name: pipe-to-programs
+    args:
+      - |
+        echo "This text is mostly lowercase." |> tr "[:lower:]" "[:upper:]"
+    stdout: |
+      THIS TEXT IS MOSTLY LOWERCASE.
