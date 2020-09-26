@@ -4,6 +4,10 @@
 set -e
 set -u
 
+echo >&2 '> cargo build'
+cargo build --all-targets
+echo >&2
+
 echo >&2 '> cargo test'
 cargo test
 
