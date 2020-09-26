@@ -35,26 +35,17 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
             arguments,
         } if arguments.is_empty() => Ok(Box::new(streams::Text::new(contents))),
         parsers::Expression::Command {
-            command: parsers::Token::Identifier { namespace: _, id },
+            command: parsers::Token::Raw { value },
             arguments,
-        } if arguments.is_empty() && id == "stdin" => Ok(Box::new(streams::Stdin::new())),
+        } if arguments.is_empty() && value == "stdin" => Ok(Box::new(streams::Stdin::new())),
         parsers::Expression::Command {
             command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
         parsers::Expression::Command {
-            command: parsers::Token::Identifier { namespace, id },
+            command: parsers::Token::Raw { value },
             arguments,
-        } if namespace == "" => {
-            let text_arguments = arguments
-                .into_iter()
-                .map(|argument| match argument {
-                    parsers::Token::Text { contents } => Ok(contents),
-                    _ => Err(Error::InvalidArgument(argument)),
-                })
-                .collect::<Result<Vec<String>>>()?;
-            Ok(Box::new(streams::Process::new(id, text_arguments)))
-        }
+        } => process(value, arguments).map(|p| Box::new(p).as_dyn_source()),
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }
@@ -62,26 +53,29 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
 fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
     match expression {
         parsers::Expression::Command {
-            command: parsers::Token::Identifier { namespace: _, id },
+            command: parsers::Token::Raw { value },
             arguments,
-        } if arguments.is_empty() && id == "stdout" => Ok(Box::new(streams::Stdout::new())),
+        } if arguments.is_empty() && value == "stdout" => Ok(Box::new(streams::Stdout::new())),
         parsers::Expression::Command {
             command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
         parsers::Expression::Command {
-            command: parsers::Token::Identifier { namespace, id },
+            command: parsers::Token::Raw { value },
             arguments,
-        } if namespace == "" => {
-            let text_arguments = arguments
-                .into_iter()
-                .map(|argument| match argument {
-                    parsers::Token::Text { contents } => Ok(contents),
-                    _ => Err(Error::InvalidArgument(argument)),
-                })
-                .collect::<Result<Vec<String>>>()?;
-            Ok(Box::new(streams::Process::new(id, text_arguments)))
-        }
+        } => process(value, arguments).map(|p| Box::new(p).as_dyn_sink()),
         _ => Err(Error::UnresolvedExpression(expression)),
     }
+}
+
+fn process(command: String, arguments: Vec<parsers::Token>) -> Result<streams::Process> {
+    let text_arguments = arguments
+        .into_iter()
+        .map(|argument| match argument {
+            parsers::Token::Raw { value } => Ok(value),
+            parsers::Token::Text { contents } => Ok(contents),
+            _ => Err(Error::InvalidArgument(argument)),
+        })
+        .collect::<Result<Vec<String>>>()?;
+    Ok(streams::Process::new(command, text_arguments))
 }

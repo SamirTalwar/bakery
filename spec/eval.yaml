@@ -71,3 +71,10 @@ tests:
         echo "This text is mostly lowercase." |> tr "[:lower:]" "[:upper:]"
     stdout: |
       THIS TEXT IS MOSTLY LOWERCASE.
+
+  - name: run-programs-with-raw-string-arguments
+    args:
+      - |
+        echo hello world
+    stdout: |
+      hello world

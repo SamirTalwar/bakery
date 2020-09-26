@@ -33,6 +33,7 @@ pub enum Expression {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
+    Raw { value: String },
     Identifier { namespace: String, id: String },
     Text { contents: String },
 }
@@ -106,7 +107,7 @@ fn command(input: Span) -> ParseResult<Expression> {
 }
 
 fn token(input: Span) -> ParseResult<Token> {
-    delimited(markup, alt((text, identifier)), markup)(input)
+    delimited(markup, alt((text, identifier, raw)), markup)(input)
 }
 
 fn text(input: Span) -> ParseResult<Token> {
@@ -119,10 +120,6 @@ fn text(input: Span) -> ParseResult<Token> {
 }
 
 fn identifier(input: Span) -> ParseResult<Token> {
-    alt((namespaced_identifier, unnamespaced_identifier))(input)
-}
-
-fn namespaced_identifier(input: Span) -> ParseResult<Token> {
     let (input, namespace) = map(alpha1, fragment_string)(input)?;
     let (input, _) = tag(":")(input)?;
     let (input, id) = map(
@@ -132,11 +129,8 @@ fn namespaced_identifier(input: Span) -> ParseResult<Token> {
     Ok((input, Token::Identifier { namespace, id }))
 }
 
-fn unnamespaced_identifier(input: Span) -> ParseResult<Token> {
-    map(map(alpha1, fragment_string), |id| Token::Identifier {
-        namespace: String::from(""),
-        id,
-    })(input)
+fn raw(input: Span) -> ParseResult<Token> {
+    map(map(alpha1, fragment_string), |value| Token::Raw { value })(input)
 }
 
 fn markup(input: Span) -> ParseResult<()> {
@@ -244,10 +238,7 @@ mod tests {
             let span = Span::new(&input);
             let parsed = token(span)?;
 
-            let expected = Token::Identifier {
-                namespace: String::from(""),
-                id: input.clone(),
-            };
+            let expected = Token::Raw { value: input.clone() };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
@@ -284,20 +275,14 @@ mod tests {
                     source: Positioned {
                         position: Position { line: 1, column: 1, offset: 0 },
                         value: Box::new(Expression::Command {
-                            command: Token::Identifier {
-                                namespace: String::from(""),
-                                id: source_id,
-                            },
+                            command: Token::Raw { value: source_id },
                             arguments: vec![],
                         }),
                     },
                     sink: Positioned {
                         position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
                         value: Box::new(Expression::Command {
-                            command: Token::Identifier {
-                                namespace: String::from(""),
-                                id: sink_id,
-                            },
+                            command: Token::Raw { value: sink_id },
                             arguments: vec![],
                         }),
                     },
@@ -315,7 +300,7 @@ mod tests {
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
                 value: Box::new(Expression::Command {
-                    command: Token::Identifier { namespace: String::from(""), id: id.clone() },
+                    command: Token::Raw { value: id.clone() },
                     arguments: vec![],
                 })
             };
@@ -327,19 +312,24 @@ mod tests {
             arguments in collection::vec("[A-Za-z]+", 1..5),
             spaces in collection::vec("\\s+", 5),
         ) {
-            let input = arguments.iter().zip(spaces.iter()).flat_map(|(arg, space)| vec![arg, space]).cloned().collect::<String>();
+            let input = arguments
+                .iter()
+                .zip(spaces.iter())
+                .flat_map(|(arg, space)| vec![arg, space])
+                .cloned()
+                .collect::<String>();
             let span = Span::new(&input);
             let parsed = expression(span)?;
 
+            let command = Token::Raw { value: arguments[0].clone() };
+            let arguments = arguments
+                .iter()
+                .skip(1)
+                .map(|id| Token::Raw { value: id.to_string() })
+                .collect();
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
-                value: Box::new(Expression::Command {
-                    command: Token::Identifier { namespace: String::from(""), id: arguments[0].clone() },
-                    arguments: arguments.iter().skip(1).map(|id| Token::Identifier {
-                        namespace: String::from(""),
-                        id: id.to_string(),
-                    }).collect(),
-                })
+                value: Box::new(Expression::Command { command, arguments })
             };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
