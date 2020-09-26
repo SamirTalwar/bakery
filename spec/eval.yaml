@@ -57,3 +57,10 @@ tests:
         echo "This is an argument."
     stdout: |
       This is an argument.
+
+  - name: run-program-with-multiple-arguments
+    args:
+      - |
+        echo "This is an argument." "This is another argument."
+    stdout: |
+      This is an argument. This is another argument.
