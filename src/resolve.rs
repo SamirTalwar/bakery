@@ -31,25 +31,25 @@ pub fn expression(expression: parsers::Expression) -> Result<Pipe> {
 fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
     match expression {
         parsers::Expression::Command {
-            command: parsers::Argument::Text { contents },
+            command: parsers::Token::Text { contents },
             arguments,
         } if arguments.is_empty() => Ok(Box::new(streams::Text::new(contents))),
         parsers::Expression::Command {
-            command: parsers::Argument::Identifier { namespace: _, id },
+            command: parsers::Token::Identifier { namespace: _, id },
             arguments,
         } if arguments.is_empty() && id == "stdin" => Ok(Box::new(streams::Stdin::new())),
         parsers::Expression::Command {
-            command: parsers::Argument::Identifier { namespace, id },
+            command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
         parsers::Expression::Command {
-            command: parsers::Argument::Identifier { namespace, id },
+            command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if namespace == "" => {
             let text_arguments = arguments
                 .into_iter()
                 .map(|argument| match argument {
-                    parsers::Argument::Text { contents } => Ok(contents),
+                    parsers::Token::Text { contents } => Ok(contents),
                     _ => Err(Error::InvalidArgument(argument)),
                 })
                 .collect::<Result<Vec<String>>>()?;
@@ -62,11 +62,11 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
 fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
     match expression {
         parsers::Expression::Command {
-            command: parsers::Argument::Identifier { namespace: _, id },
+            command: parsers::Token::Identifier { namespace: _, id },
             arguments,
         } if arguments.is_empty() && id == "stdout" => Ok(Box::new(streams::Stdout::new())),
         parsers::Expression::Command {
-            command: parsers::Argument::Identifier { namespace, id },
+            command: parsers::Token::Identifier { namespace, id },
             arguments,
         } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
         _ => Err(Error::UnresolvedExpression(expression)),

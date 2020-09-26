@@ -22,8 +22,8 @@ pub struct Program {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
     Command {
-        command: Argument,
-        arguments: Vec<Argument>,
+        command: Token,
+        arguments: Vec<Token>,
     },
     Pipe {
         source: Positioned<Expression>,
@@ -32,7 +32,7 @@ pub enum Expression {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Argument {
+pub enum Token {
     Identifier { namespace: String, id: String },
     Text { contents: String },
 }
@@ -100,40 +100,40 @@ fn pipe(input: Span) -> ParseResult<Expression> {
 }
 
 fn command(input: Span) -> ParseResult<Expression> {
-    let (input, command) = argument(input)?;
-    let (input, arguments) = many0(argument)(input)?;
+    let (input, command) = token(input)?;
+    let (input, arguments) = many0(token)(input)?;
     Ok((input, Expression::Command { command, arguments }))
 }
 
-fn argument(input: Span) -> ParseResult<Argument> {
+fn token(input: Span) -> ParseResult<Token> {
     delimited(markup, alt((text, identifier)), markup)(input)
 }
 
-fn text(input: Span) -> ParseResult<Argument> {
+fn text(input: Span) -> ParseResult<Token> {
     map(
         delimited(tag("\""), many0(none_of("\"")), tag("\"")),
-        |contents| Argument::Text {
+        |contents| Token::Text {
             contents: contents.into_iter().collect(),
         },
     )(input)
 }
 
-fn identifier(input: Span) -> ParseResult<Argument> {
+fn identifier(input: Span) -> ParseResult<Token> {
     alt((namespaced_identifier, unnamespaced_identifier))(input)
 }
 
-fn namespaced_identifier(input: Span) -> ParseResult<Argument> {
+fn namespaced_identifier(input: Span) -> ParseResult<Token> {
     let (input, namespace) = map(alpha1, fragment_string)(input)?;
     let (input, _) = tag(":")(input)?;
     let (input, id) = map(
         recognize(many1(complete(alphanumerisymbolic))),
         fragment_string,
     )(input)?;
-    Ok((input, Argument::Identifier { namespace, id }))
+    Ok((input, Token::Identifier { namespace, id }))
 }
 
-fn unnamespaced_identifier(input: Span) -> ParseResult<Argument> {
-    map(map(alpha1, fragment_string), |id| Argument::Identifier {
+fn unnamespaced_identifier(input: Span) -> ParseResult<Token> {
+    map(map(alpha1, fragment_string), |id| Token::Identifier {
         namespace: String::from(""),
         id,
     })(input)
@@ -240,11 +240,11 @@ mod tests {
         }
 
         #[test]
-        fn argument_matches_any_identifier(input in "[A-Za-z]+") {
+        fn token_matches_any_identifier(input in "[A-Za-z]+") {
             let span = Span::new(&input);
-            let parsed = argument(span)?;
+            let parsed = token(span)?;
 
-            let expected = Argument::Identifier {
+            let expected = Token::Identifier {
                 namespace: String::from(""),
                 id: input.clone(),
             };
@@ -252,22 +252,22 @@ mod tests {
         }
 
         #[test]
-        fn argument_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+") {
+        fn token_matches_a_namespaced_identifier(namespace in "[A-Za-z]+", id in "[^\\pc\\s]+") {
             let input = namespace.clone() + ":" + &id;
             let span = Span::new(&input);
-            let parsed = argument(span)?;
+            let parsed = token(span)?;
 
-            let expected = Argument::Identifier { namespace, id };
+            let expected = Token::Identifier { namespace, id };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
         #[test]
-        fn argument_matches_a_text_string(text in "[^\"]*") {
+        fn token_matches_a_text_string(text in "[^\"]*") {
             let input = "\"".to_string() + &text + "\"";
             let span = Span::new(&input);
-            let parsed = argument(span)?;
+            let parsed = token(span)?;
 
-            let expected = Argument::Text { contents: text };
+            let expected = Token::Text { contents: text };
             prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
 
@@ -284,7 +284,7 @@ mod tests {
                     source: Positioned {
                         position: Position { line: 1, column: 1, offset: 0 },
                         value: Box::new(Expression::Command {
-                            command: Argument::Identifier {
+                            command: Token::Identifier {
                                 namespace: String::from(""),
                                 id: source_id,
                             },
@@ -294,7 +294,7 @@ mod tests {
                     sink: Positioned {
                         position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
                         value: Box::new(Expression::Command {
-                            command: Argument::Identifier {
+                            command: Token::Identifier {
                                 namespace: String::from(""),
                                 id: sink_id,
                             },
@@ -315,7 +315,7 @@ mod tests {
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
                 value: Box::new(Expression::Command {
-                    command: Argument::Identifier { namespace: String::from(""), id: id.clone() },
+                    command: Token::Identifier { namespace: String::from(""), id: id.clone() },
                     arguments: vec![],
                 })
             };
@@ -334,8 +334,8 @@ mod tests {
             let expected = Positioned {
                 position: Position { line: 1, column: 1, offset: 0 },
                 value: Box::new(Expression::Command {
-                    command: Argument::Identifier { namespace: String::from(""), id: arguments[0].clone() },
-                    arguments: arguments.iter().skip(1).map(|id| Argument::Identifier {
+                    command: Token::Identifier { namespace: String::from(""), id: arguments[0].clone() },
+                    arguments: arguments.iter().skip(1).map(|id| Token::Identifier {
                         namespace: String::from(""),
                         id: id.to_string(),
                     }).collect(),

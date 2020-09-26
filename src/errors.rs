@@ -1,7 +1,7 @@
 use std::io;
 use std::result;
 
-use super::parsers::{Argument, Expression};
+use super::parsers::{Expression, Token};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -10,7 +10,7 @@ pub enum Error {
     IO(io::Error),
     Parse(String),
     UnresolvedExpression(Expression),
-    InvalidArgument(Argument),
+    InvalidArgument(Token),
     CouldNotOpenSource(String),
 }
 
