@@ -74,6 +74,7 @@ fn process(command: String, arguments: Vec<parsers::Token>) -> Result<streams::P
         .map(|argument| match argument {
             parsers::Token::Raw { value } => Ok(value),
             parsers::Token::Text { contents } => Ok(contents),
+            parsers::Token::Identifier { namespace, id } if namespace == "file" => Ok(id),
             _ => Err(Error::InvalidArgument(argument)),
         })
         .collect::<Result<Vec<String>>>()?;

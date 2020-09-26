@@ -78,3 +78,12 @@ tests:
         echo hello world
     stdout: |
       hello world
+
+  - name: run-programs-with-file-arguments
+    args:
+      - |
+        cat file:./fixtures/one.in file:./fixtures/two.in
+    stdout: |
+      one
+      two
+      2
