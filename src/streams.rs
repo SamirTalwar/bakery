@@ -19,9 +19,19 @@ impl Text {
     }
 }
 
-impl Source for Text {
-    fn open<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
-        Ok(Box::new((&self.contents).as_bytes()))
+impl Block for Text {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+        Ok(Box::new(self.contents.as_bytes()))
+    }
+
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+        Err(Error::InvalidSink("Text".to_string()))
+    }
+}
+
+impl io::Read for Text {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        self.contents.as_bytes().read(buf)
     }
 }
 
@@ -33,9 +43,13 @@ impl Stdin {
     }
 }
 
-impl Source for Stdin {
-    fn open(&self) -> Result<Box<dyn io::Read>> {
+impl Block for Stdin {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         Ok(Box::new(io::stdin()))
+    }
+
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+        Err(Error::InvalidSink("Stdin".to_string()))
     }
 }
 
@@ -47,8 +61,12 @@ impl Stdout {
     }
 }
 
-impl Sink for Stdout {
-    fn open(&self) -> Result<Box<dyn io::Write>> {
+impl Block for Stdout {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+        Err(Error::InvalidSource("Stdout".to_string()))
+    }
+
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
         Ok(Box::new(io::stdout()))
     }
 }
@@ -63,15 +81,13 @@ impl File {
     }
 }
 
-impl Source for File {
-    fn open(&self) -> Result<Box<dyn io::Read>> {
+impl Block for File {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         let file = fs::File::open(&self.path).map_err(errors::io)?;
         Ok(Box::new(file))
     }
-}
 
-impl Sink for File {
-    fn open(&self) -> Result<Box<dyn io::Write>> {
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
         let file = fs::File::create(&self.path).map_err(errors::io)?;
         Ok(Box::new(file))
     }
@@ -88,8 +104,8 @@ impl Process {
     }
 }
 
-impl Source for Process {
-    fn open(&self) -> Result<Box<dyn io::Read>> {
+impl Block for Process {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
             .stdout(process::Stdio::piped())
@@ -100,10 +116,8 @@ impl Source for Process {
             Some(stdout) => Ok(Box::new(stdout)),
         }
     }
-}
 
-impl Sink for Process {
-    fn open(&self) -> Result<Box<dyn io::Write>> {
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
             .stdin(process::Stdio::piped())

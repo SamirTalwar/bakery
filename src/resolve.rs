@@ -3,12 +3,11 @@ use super::errors::{Error, Result};
 use super::parsers;
 use super::streams;
 
-pub fn program(program: parsers::Program) -> Result<Program> {
-    let pipe = expression(*program.expression.value)?;
-    Ok(Program { pipe })
+pub fn program(program: parsers::Program) -> Result<Expression> {
+    expression(*program.expression.value)
 }
 
-pub fn expression(expression: parsers::Expression) -> Result<Pipe> {
+pub fn expression(expression: parsers::Expression) -> Result<Expression> {
     match expression {
         command
         @
@@ -18,17 +17,27 @@ pub fn expression(expression: parsers::Expression) -> Result<Pipe> {
         } => {
             let source = self::source(command)?;
             let sink = Box::new(streams::Stdout::new());
-            Ok(Pipe { source, sink })
+            Ok(Expression::Pipe {
+                source: block(source),
+                sink: block(sink),
+            })
         }
         parsers::Expression::Pipe { source, sink } => {
             let source = self::source(*source.value)?;
             let sink = self::sink(*sink.value)?;
-            Ok(Pipe { source, sink })
+            Ok(Expression::Pipe {
+                source: block(source),
+                sink: block(sink),
+            })
         }
     }
 }
 
-fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
+fn block(block: Box<dyn Block>) -> Box<Expression> {
+    Box::new(Expression::Block(block))
+}
+
+fn source(expression: parsers::Expression) -> Result<Box<dyn Block>> {
     match expression {
         parsers::Expression::Command {
             command: parsers::Token::Text { contents },
@@ -45,12 +54,12 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn Source>> {
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
-        } => process(value, arguments).map(|p| Box::new(p).as_dyn_source()),
+        } => process(value, arguments),
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }
 
-fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
+fn sink(expression: parsers::Expression) -> Result<Box<dyn Block>> {
     match expression {
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
@@ -63,12 +72,12 @@ fn sink(expression: parsers::Expression) -> Result<Box<dyn Sink>> {
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
-        } => process(value, arguments).map(|p| Box::new(p).as_dyn_sink()),
+        } => process(value, arguments),
         _ => Err(Error::UnresolvedExpression(expression)),
     }
 }
 
-fn process(command: String, arguments: Vec<parsers::Token>) -> Result<streams::Process> {
+fn process(command: String, arguments: Vec<parsers::Token>) -> Result<Box<dyn Block>> {
     let text_arguments = arguments
         .into_iter()
         .map(|argument| match argument {
@@ -78,5 +87,5 @@ fn process(command: String, arguments: Vec<parsers::Token>) -> Result<streams::P
             _ => Err(Error::InvalidArgument(argument)),
         })
         .collect::<Result<Vec<String>>>()?;
-    Ok(streams::Process::new(command, text_arguments))
+    Ok(Box::new(streams::Process::new(command, text_arguments)))
 }

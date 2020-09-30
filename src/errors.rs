@@ -10,7 +10,10 @@ pub enum Error {
     IO(io::Error),
     Parse(String),
     UnresolvedExpression(Expression),
+    UninterpretableProgram,
     InvalidArgument(Token),
+    InvalidSource(String),
+    InvalidSink(String),
     CouldNotOpenSource(String),
     CouldNotOpenSink(String),
 }
