@@ -7,6 +7,7 @@ use super::ast::*;
 use super::errors;
 use super::errors::{Error, Result};
 
+#[derive(Debug)]
 pub struct Text {
     contents: String,
 }
@@ -19,13 +20,15 @@ impl Text {
     }
 }
 
+impl Representable for Text {
+    fn repr(&self) -> String {
+        "text".to_string()
+    }
+}
+
 impl Block for Text {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         Ok(Box::new(self.contents.as_bytes()))
-    }
-
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
-        Err(Error::InvalidSink("Text".to_string()))
     }
 }
 
@@ -35,6 +38,7 @@ impl io::Read for Text {
     }
 }
 
+#[derive(Debug)]
 pub struct Stdin {}
 
 impl Stdin {
@@ -43,16 +47,19 @@ impl Stdin {
     }
 }
 
+impl Representable for Stdin {
+    fn repr(&self) -> String {
+        "stdin".to_string()
+    }
+}
+
 impl Block for Stdin {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         Ok(Box::new(io::stdin()))
     }
-
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
-        Err(Error::InvalidSink("Stdin".to_string()))
-    }
 }
 
+#[derive(Debug)]
 pub struct Stdout {}
 
 impl Stdout {
@@ -61,16 +68,19 @@ impl Stdout {
     }
 }
 
-impl Block for Stdout {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
-        Err(Error::InvalidSource("Stdout".to_string()))
+impl Representable for Stdout {
+    fn repr(&self) -> String {
+        "stdout".to_string()
     }
+}
 
+impl Block for Stdout {
     fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
         Ok(Box::new(io::stdout()))
     }
 }
 
+#[derive(Debug)]
 pub struct File {
     path: String,
 }
@@ -78,6 +88,12 @@ pub struct File {
 impl File {
     pub fn new(path: String) -> Self {
         File { path }
+    }
+}
+
+impl Representable for File {
+    fn repr(&self) -> String {
+        "file".to_string()
     }
 }
 
@@ -93,6 +109,7 @@ impl Block for File {
     }
 }
 
+#[derive(Debug)]
 pub struct Process {
     command: String,
     arguments: Vec<String>,
@@ -101,6 +118,12 @@ pub struct Process {
 impl Process {
     pub fn new(command: String, arguments: Vec<String>) -> Self {
         Process { command, arguments }
+    }
+}
+
+impl Representable for Process {
+    fn repr(&self) -> String {
+        "process".to_string()
     }
 }
 

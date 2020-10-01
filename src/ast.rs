@@ -1,7 +1,7 @@
 use std::boxed::Box;
 use std::io;
 
-use super::errors::Result;
+use super::errors::{Error, Result};
 
 pub enum Expression {
     Block(Box<dyn Block>),
@@ -11,8 +11,16 @@ pub enum Expression {
     },
 }
 
-pub trait Block {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>>;
+pub trait Representable {
+    fn repr(&self) -> String;
+}
 
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>>;
+pub trait Block: Representable {
+    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+        Err(Error::InvalidSource(self.repr()))
+    }
+
+    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+        Err(Error::InvalidSink(self.repr()))
+    }
 }
