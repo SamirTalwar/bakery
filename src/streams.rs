@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::process;
 
-use super::ast::*;
+use super::ast;
 use super::errors;
 use super::errors::{Error, Result};
 
@@ -20,13 +20,13 @@ impl Text {
     }
 }
 
-impl Representable for Text {
+impl ast::Representable for Text {
     fn repr(&self) -> String {
         "text".to_string()
     }
 }
 
-impl Block for Text {
+impl ast::Block for Text {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         Ok(Box::new(self.contents.as_bytes()))
     }
@@ -47,13 +47,13 @@ impl Stdin {
     }
 }
 
-impl Representable for Stdin {
+impl ast::Representable for Stdin {
     fn repr(&self) -> String {
         "stdin".to_string()
     }
 }
 
-impl Block for Stdin {
+impl ast::Block for Stdin {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         Ok(Box::new(io::stdin()))
     }
@@ -68,13 +68,13 @@ impl Stdout {
     }
 }
 
-impl Representable for Stdout {
+impl ast::Representable for Stdout {
     fn repr(&self) -> String {
         "stdout".to_string()
     }
 }
 
-impl Block for Stdout {
+impl ast::Block for Stdout {
     fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
         Ok(Box::new(io::stdout()))
     }
@@ -91,13 +91,13 @@ impl File {
     }
 }
 
-impl Representable for File {
+impl ast::Representable for File {
     fn repr(&self) -> String {
         "file".to_string()
     }
 }
 
-impl Block for File {
+impl ast::Block for File {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         let file = fs::File::open(&self.path).map_err(errors::io)?;
         Ok(Box::new(file))
@@ -121,13 +121,13 @@ impl Process {
     }
 }
 
-impl Representable for Process {
+impl ast::Representable for Process {
     fn repr(&self) -> String {
         "process".to_string()
     }
 }
 
-impl Block for Process {
+impl ast::Block for Process {
     fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
