@@ -15,21 +15,27 @@ pub enum Expression {
     },
 }
 
-pub struct Output<'a>(Box<dyn io::Write + 'a>);
-
-impl<'a> Output<'a> {
-    pub fn new<T: io::Write + 'a>(write: T) -> Output<'a> {
-        Output(Box::new(io::BufWriter::new(write)))
-    }
+pub enum Output {
+    StdOut(io::Stdout),
+    File(std::fs::File),
+    Pipe(std::process::ChildStdin),
 }
 
-impl io::Write for Output<'_> {
+impl io::Write for Output {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+        match self {
+            Self::StdOut(stdout) => stdout.write(buf),
+            Self::File(file) => file.write(buf),
+            Self::Pipe(process_stdin) => process_stdin.write(buf),
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
+        match self {
+            Self::StdOut(stdout) => stdout.flush(),
+            Self::File(file) => file.flush(),
+            Self::Pipe(process_stdin) => process_stdin.flush(),
+        }
     }
 }
 

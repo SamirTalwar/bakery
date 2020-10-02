@@ -72,7 +72,7 @@ impl Representable for Stdout {
 
 impl Block for Stdout {
     fn sink(&self) -> Result<Output> {
-        Ok(Output::new(io::stdout()))
+        Ok(Output::StdOut(io::stdout()))
     }
 }
 
@@ -102,7 +102,7 @@ impl Block for File {
 
     fn sink(&self) -> Result<Output> {
         let file = fs::File::create(&self.path).map_err(errors::io)?;
-        Ok(Output::new(file))
+        Ok(Output::File(file))
     }
 }
 
@@ -125,19 +125,19 @@ impl Representable for Process {
 }
 
 impl Block for Process {
-    fn source(&self, mut next: Output) -> Result<()> {
-        let child = process::Command::new(&self.command)
+    fn source(&self, next: Output) -> Result<()> {
+        let stdout = match next {
+            Output::StdOut(_) => process::Stdio::inherit(),
+            Output::File(file) => process::Stdio::from(file),
+            Output::Pipe(stdin) => process::Stdio::from(stdin),
+        };
+        let mut child = process::Command::new(&self.command)
             .args(&self.arguments)
-            .stdout(process::Stdio::piped())
+            .stdout(stdout)
             .spawn()
             .map_err(errors::io)?;
-        match child.stdout {
-            None => Err(Error::CouldNotOpenSource("process".to_string())),
-            Some(mut stdout) => {
-                io::copy(&mut stdout, &mut next).map_err(errors::io)?;
-                Ok(())
-            }
-        }
+        child.wait().map_err(errors::io)?;
+        Ok(())
     }
 
     fn sink(&self) -> Result<Output> {
@@ -147,8 +147,8 @@ impl Block for Process {
             .spawn()
             .map_err(errors::io)?;
         match child.stdin {
-            None => Err(Error::CouldNotOpenSink("process".to_string())),
-            Some(stdin) => Ok(Output::new(stdin)),
+            None => Err(Error::Impossible("Process STDIN is missing".to_string())),
+            Some(stdin) => Ok(Output::Pipe(stdin)),
         }
     }
 }
