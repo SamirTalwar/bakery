@@ -3,6 +3,10 @@ use std::io;
 
 use super::errors::{Error, Result};
 
+pub trait Representable {
+    fn repr(&self) -> String;
+}
+
 pub enum Expression {
     Block(Box<dyn Block>),
     Pipe {
@@ -11,16 +15,30 @@ pub enum Expression {
     },
 }
 
-pub trait Representable {
-    fn repr(&self) -> String;
+pub struct Output<'a>(Box<dyn io::Write + 'a>);
+
+impl<'a> Output<'a> {
+    pub fn new<T: io::Write + 'a>(write: T) -> Output<'a> {
+        Output(Box::new(io::BufWriter::new(write)))
+    }
+}
+
+impl io::Write for Output<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
 }
 
 pub trait Block: Representable {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+    fn source(&self, _next: Output) -> Result<()> {
         Err(Error::InvalidSource(self.repr()))
     }
 
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+    fn sink(&self) -> Result<Output> {
         Err(Error::InvalidSink(self.repr()))
     }
 }
@@ -35,14 +53,14 @@ impl Representable for Expression {
 }
 
 impl Block for Expression {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+    fn source(&self, next: Output) -> Result<()> {
         match self {
-            Self::Block(block) => block.source(),
-            Self::Pipe { .. } => Block::source(self),
+            Self::Block(block) => block.source(next),
+            Self::Pipe { .. } => Block::source(self, next),
         }
     }
 
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+    fn sink(&self) -> Result<Output> {
         match self {
             Self::Block(block) => block.sink(),
             Self::Pipe { .. } => Block::sink(self),

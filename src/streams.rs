@@ -1,9 +1,9 @@
-use std::boxed::Box;
 use std::fs;
 use std::io;
+use std::io::Write;
 use std::process;
 
-use super::ast;
+use super::ast::{Block, Output, Representable};
 use super::errors;
 use super::errors::{Error, Result};
 
@@ -20,21 +20,16 @@ impl Text {
     }
 }
 
-impl ast::Representable for Text {
+impl Representable for Text {
     fn repr(&self) -> String {
         "text".to_string()
     }
 }
 
-impl ast::Block for Text {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
-        Ok(Box::new(self.contents.as_bytes()))
-    }
-}
-
-impl io::Read for Text {
-    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
-        self.contents.as_bytes().read(buf)
+impl Block for Text {
+    fn source(&self, mut next: Output) -> Result<()> {
+        next.write(self.contents.as_bytes()).map_err(errors::io)?;
+        Ok(())
     }
 }
 
@@ -47,15 +42,16 @@ impl Stdin {
     }
 }
 
-impl ast::Representable for Stdin {
+impl Representable for Stdin {
     fn repr(&self) -> String {
         "stdin".to_string()
     }
 }
 
-impl ast::Block for Stdin {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
-        Ok(Box::new(io::stdin()))
+impl Block for Stdin {
+    fn source(&self, mut next: Output) -> Result<()> {
+        io::copy(&mut io::stdin(), &mut next).map_err(errors::io)?;
+        Ok(())
     }
 }
 
@@ -68,15 +64,15 @@ impl Stdout {
     }
 }
 
-impl ast::Representable for Stdout {
+impl Representable for Stdout {
     fn repr(&self) -> String {
         "stdout".to_string()
     }
 }
 
-impl ast::Block for Stdout {
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
-        Ok(Box::new(io::stdout()))
+impl Block for Stdout {
+    fn sink(&self) -> Result<Output> {
+        Ok(Output::new(io::stdout()))
     }
 }
 
@@ -91,21 +87,22 @@ impl File {
     }
 }
 
-impl ast::Representable for File {
+impl Representable for File {
     fn repr(&self) -> String {
         "file".to_string()
     }
 }
 
-impl ast::Block for File {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
-        let file = fs::File::open(&self.path).map_err(errors::io)?;
-        Ok(Box::new(file))
+impl Block for File {
+    fn source(&self, mut next: Output) -> Result<()> {
+        let mut file = fs::File::open(&self.path).map_err(errors::io)?;
+        io::copy(&mut file, &mut next).map_err(errors::io)?;
+        Ok(())
     }
 
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+    fn sink(&self) -> Result<Output> {
         let file = fs::File::create(&self.path).map_err(errors::io)?;
-        Ok(Box::new(file))
+        Ok(Output::new(file))
     }
 }
 
@@ -121,14 +118,14 @@ impl Process {
     }
 }
 
-impl ast::Representable for Process {
+impl Representable for Process {
     fn repr(&self) -> String {
         "process".to_string()
     }
 }
 
-impl ast::Block for Process {
-    fn source<'a>(&'a self) -> Result<Box<dyn io::Read + 'a>> {
+impl Block for Process {
+    fn source(&self, mut next: Output) -> Result<()> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
             .stdout(process::Stdio::piped())
@@ -136,11 +133,14 @@ impl ast::Block for Process {
             .map_err(errors::io)?;
         match child.stdout {
             None => Err(Error::CouldNotOpenSource("process".to_string())),
-            Some(stdout) => Ok(Box::new(stdout)),
+            Some(mut stdout) => {
+                io::copy(&mut stdout, &mut next).map_err(errors::io)?;
+                Ok(())
+            }
         }
     }
 
-    fn sink<'a>(&'a self) -> Result<Box<dyn io::Write + 'a>> {
+    fn sink(&self) -> Result<Output> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
             .stdin(process::Stdio::piped())
@@ -148,7 +148,7 @@ impl ast::Block for Process {
             .map_err(errors::io)?;
         match child.stdin {
             None => Err(Error::CouldNotOpenSink("process".to_string())),
-            Some(stdin) => Ok(Box::new(stdin)),
+            Some(stdin) => Ok(Output::new(stdin)),
         }
     }
 }
