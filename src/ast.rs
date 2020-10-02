@@ -15,6 +15,7 @@ pub enum Expression {
     },
 }
 
+#[derive(Debug)]
 pub enum Output {
     StdOut(io::Stdout),
     File(std::fs::File),
@@ -44,6 +45,10 @@ pub trait Block: Representable {
         Err(Error::InvalidSource(self.repr()))
     }
 
+    fn conduit(&self, _next: Output) -> Result<Output> {
+        Err(Error::InvalidConduit(self.repr()))
+    }
+
     fn sink(&self) -> Result<Output> {
         Err(Error::InvalidSink(self.repr()))
     }
@@ -62,14 +67,30 @@ impl Block for Expression {
     fn source(&self, next: Output) -> Result<()> {
         match self {
             Self::Block(block) => block.source(next),
-            Self::Pipe { .. } => Block::source(self, next),
+            Self::Pipe { source, sink } => {
+                let conduit = sink.conduit(next)?;
+                source.source(conduit)
+            }
+        }
+    }
+
+    fn conduit(&self, next: Output) -> Result<Output> {
+        match self {
+            Self::Block(block) => block.conduit(next),
+            Self::Pipe { source, sink } => {
+                let conduit = sink.conduit(next)?;
+                source.conduit(conduit)
+            }
         }
     }
 
     fn sink(&self) -> Result<Output> {
         match self {
             Self::Block(block) => block.sink(),
-            Self::Pipe { .. } => Block::sink(self),
+            Self::Pipe { source, sink } => {
+                let conduit = sink.sink()?;
+                source.conduit(conduit)
+            }
         }
     }
 }

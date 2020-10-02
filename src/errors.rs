@@ -15,6 +15,7 @@ pub enum Error {
     InvalidArgument(Token),
     InvalidSource(String),
     InvalidSink(String),
+    InvalidConduit(String),
 }
 
 pub fn io(error: io::Error) -> Error {

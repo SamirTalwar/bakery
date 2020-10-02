@@ -95,7 +95,7 @@ fn expression(input: Span) -> ParseResult<Positioned<Expression>> {
 
 fn pipe(input: Span) -> ParseResult<Expression> {
     map(
-        pair(positioned(command), preceded(arrow, positioned(command))),
+        pair(positioned(command), preceded(arrow, expression)),
         |(source, sink)| Expression::Pipe { source, sink },
     )(input)
 }
@@ -284,6 +284,52 @@ mod tests {
                         value: Box::new(Expression::Command {
                             command: Token::Raw { value: sink_id },
                             arguments: vec![],
+                        }),
+                    },
+                }),
+            };
+            prop_assert_eq!((span.slice(input.len()..), expected), parsed);
+        }
+
+        #[test]
+        fn expression_parses_two_pipes(
+            source_id in "[A-Za-z]+",
+            conduit_id in "[A-Za-z]+",
+            sink_id in "[A-Za-z]+",
+        ) {
+            let input = source_id.clone() + " |> " + &conduit_id + " |> " + &sink_id;
+            let span = Span::new(&input);
+            let parsed = expression(span)?;
+
+            let conduit_offset = source_id.len() + 4;
+            let sink_offset = conduit_offset + conduit_id.len() + 4;
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Pipe {
+                    source: Positioned {
+                        position: Position { line: 1, column: 1, offset: 0 },
+                        value: Box::new(Expression::Command {
+                            command: Token::Raw { value: source_id },
+                            arguments: vec![],
+                        }),
+                    },
+                    sink:  Positioned {
+                        position: Position { line: 1, column: conduit_offset + 1, offset: conduit_offset },
+                        value: Box::new(Expression::Pipe {
+                            source: Positioned {
+                                position: Position { line: 1, column: conduit_offset + 1, offset: conduit_offset },
+                                value: Box::new(Expression::Command {
+                                    command: Token::Raw { value: conduit_id },
+                                    arguments: vec![],
+                                })
+                            },
+                            sink: Positioned {
+                                position: Position { line: 1, column: sink_offset + 1, offset: sink_offset },
+                                value: Box::new(Expression::Command {
+                                    command: Token::Raw { value: sink_id },
+                                    arguments: vec![],
+                                })
+                            },
                         }),
                     },
                 }),

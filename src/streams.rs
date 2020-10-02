@@ -140,6 +140,26 @@ impl Block for Process {
         Ok(())
     }
 
+    fn conduit(&self, next: Output) -> Result<Output> {
+        let stdout = match next {
+            Output::StdOut(_) => process::Stdio::inherit(),
+            Output::File(file) => process::Stdio::from(file),
+            Output::Pipe(stdin) => process::Stdio::from(stdin),
+        };
+        let child = process::Command::new(&self.command)
+            .args(&self.arguments)
+            .stdin(process::Stdio::piped())
+            .stdout(stdout)
+            .spawn()
+            .map_err(errors::io)?;
+        match child.stdin {
+            None => Err(Error::Impossible(
+                "Process STDIN is missing for conduit".to_string(),
+            )),
+            Some(stdin) => Ok(Output::Pipe(stdin)),
+        }
+    }
+
     fn sink(&self) -> Result<Output> {
         let child = process::Command::new(&self.command)
             .args(&self.arguments)
@@ -147,7 +167,9 @@ impl Block for Process {
             .spawn()
             .map_err(errors::io)?;
         match child.stdin {
-            None => Err(Error::Impossible("Process STDIN is missing".to_string())),
+            None => Err(Error::Impossible(
+                "Process STDIN is missing for sink".to_string(),
+            )),
             Some(stdin) => Ok(Output::Pipe(stdin)),
         }
     }

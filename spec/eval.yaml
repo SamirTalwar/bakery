@@ -87,3 +87,14 @@ tests:
       one
       two
       2
+
+  - name: multiple-pipes
+    args:
+      - |
+        cat file:./fixtures/file.in |> tr "aeiouAEIOU" "AEIOUaeiou" |> file:./output/pipes.out
+    files:
+      - path: output/pipes.out
+        contents: |
+          oh, hEAvEns!
+    revert:
+      - output

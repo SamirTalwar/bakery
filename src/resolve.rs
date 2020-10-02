@@ -9,48 +9,46 @@ pub fn program(program: parsers::Program) -> Result<ast::Expression> {
 
 pub fn expression(expression: parsers::Expression) -> Result<ast::Expression> {
     match expression {
-        command
-        @
-        parsers::Expression::Command {
-            command: _,
-            arguments: _,
-        } => {
+        command @ parsers::Expression::Command { .. } => {
             let source = self::source(command)?;
-            let sink = Box::new(streams::Stdout::new());
+            let sink = ast::Expression::Block(Box::new(streams::Stdout::new()));
             Ok(ast::Expression::Pipe {
-                source: block(source),
-                sink: block(sink),
+                source: Box::new(source),
+                sink: Box::new(sink),
             })
         }
         parsers::Expression::Pipe { source, sink } => {
             let source = self::source(*source.value)?;
             let sink = self::sink(*sink.value)?;
             Ok(ast::Expression::Pipe {
-                source: block(source),
-                sink: block(sink),
+                source: Box::new(source),
+                sink: Box::new(sink),
             })
         }
     }
 }
 
-fn block(block: Box<dyn ast::Block>) -> Box<ast::Expression> {
-    Box::new(ast::Expression::Block(block))
-}
-
-fn source(expression: parsers::Expression) -> Result<Box<dyn ast::Block>> {
+fn source(expression: parsers::Expression) -> Result<ast::Expression> {
     match expression {
+        parsers::Expression::Pipe { .. } => self::expression(expression),
         parsers::Expression::Command {
             command: parsers::Token::Text { contents },
             arguments,
-        } if arguments.is_empty() => Ok(Box::new(streams::Text::new(contents))),
+        } if arguments.is_empty() => Ok(ast::Expression::Block(Box::new(streams::Text::new(
+            contents,
+        )))),
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
-        } if arguments.is_empty() && value == "stdin" => Ok(Box::new(streams::Stdin::new())),
+        } if arguments.is_empty() && value == "stdin" => {
+            Ok(ast::Expression::Block(Box::new(streams::Stdin::new())))
+        }
         parsers::Expression::Command {
             command: parsers::Token::Identifier { namespace, id },
             arguments,
-        } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
+        } if arguments.is_empty() && namespace == "file" => {
+            Ok(ast::Expression::Block(Box::new(streams::File::new(id))))
+        }
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
@@ -59,16 +57,21 @@ fn source(expression: parsers::Expression) -> Result<Box<dyn ast::Block>> {
     }
 }
 
-fn sink(expression: parsers::Expression) -> Result<Box<dyn ast::Block>> {
+fn sink(expression: parsers::Expression) -> Result<ast::Expression> {
     match expression {
+        parsers::Expression::Pipe { .. } => self::expression(expression),
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
-        } if arguments.is_empty() && value == "stdout" => Ok(Box::new(streams::Stdout::new())),
+        } if arguments.is_empty() && value == "stdout" => {
+            Ok(ast::Expression::Block(Box::new(streams::Stdout::new())))
+        }
         parsers::Expression::Command {
             command: parsers::Token::Identifier { namespace, id },
             arguments,
-        } if arguments.is_empty() && namespace == "file" => Ok(Box::new(streams::File::new(id))),
+        } if arguments.is_empty() && namespace == "file" => {
+            Ok(ast::Expression::Block(Box::new(streams::File::new(id))))
+        }
         parsers::Expression::Command {
             command: parsers::Token::Raw { value },
             arguments,
@@ -77,7 +80,7 @@ fn sink(expression: parsers::Expression) -> Result<Box<dyn ast::Block>> {
     }
 }
 
-fn process(command: String, arguments: Vec<parsers::Token>) -> Result<Box<dyn ast::Block>> {
+fn process(command: String, arguments: Vec<parsers::Token>) -> Result<ast::Expression> {
     let text_arguments = arguments
         .into_iter()
         .map(|argument| match argument {
@@ -87,5 +90,6 @@ fn process(command: String, arguments: Vec<parsers::Token>) -> Result<Box<dyn as
             _ => Err(Error::InvalidArgument(argument)),
         })
         .collect::<Result<Vec<String>>>()?;
-    Ok(Box::new(streams::Process::new(command, text_arguments)))
+    let process = streams::Process::new(command, text_arguments);
+    Ok(ast::Expression::Block(Box::new(process)))
 }
