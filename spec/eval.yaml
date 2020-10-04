@@ -58,12 +58,18 @@ tests:
     stdout: |
       This is an argument.
 
-  - name: run-program-with-multiple-arguments
+  - name: run-program-that-reads-stdin
     args:
       - |
-        echo "This is an argument." "This is another argument."
-    stdout: |
-      This is an argument. This is another argument.
+        cat |> file:output/file.out
+    stdin: |
+      INCOMING!
+    files:
+      - path: output/file.out
+        contents: |
+          INCOMING!
+    revert:
+      - output
 
   - name: pipe-to-programs
     args:
