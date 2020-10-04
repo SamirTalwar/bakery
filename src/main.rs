@@ -49,7 +49,15 @@ struct EvalCommand {
 
 fn main() -> Result<()> {
     let args: Args = argh::from_env();
-    let input = match args.command {
+    read_input(args.command)
+        .and_then(|input| parsers::parse(&input))
+        .and_then(resolve::program)
+        .and_then(interpreter::interpret)?;
+    Ok(())
+}
+
+fn read_input(command: Command) -> Result<String> {
+    match command {
         Command::Run(RunCommand { script_path: None }) => {
             let mut buffer = String::new();
             io::stdin()
@@ -61,9 +69,5 @@ fn main() -> Result<()> {
             script_path: Some(script_path),
         }) => fs::read_to_string(&script_path).map_err(errors::io),
         Command::Eval(EvalCommand { script_contents }) => Ok(script_contents),
-    }?;
-    let parsed_program = parsers::parse(&input)?;
-    let resolved_program = resolve::program(parsed_program)?;
-    interpreter::interpret(resolved_program)?;
-    Ok(())
+    }
 }
