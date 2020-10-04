@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, line_ending, none_of, not_line_ending};
-use nom::combinator::{all_consuming, complete, map, opt, recognize, value};
+use nom::combinator::{all_consuming, complete, map, recognize, value};
 use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, pair, preceded, terminated};
@@ -134,7 +134,7 @@ fn raw(input: Span) -> ParseResult<Token> {
 }
 
 fn markup(input: Span) -> ParseResult<()> {
-    value((), many0(alt((whitespace, complete(comment)))))(input)
+    value((), many0(alt((whitespace, comment))))(input)
 }
 
 fn comment(input: Span) -> ParseResult<&str> {
@@ -157,9 +157,21 @@ fn whitespace(input: Span) -> ParseResult<&str> {
 
 fn line(input: Span) -> ParseResult<&str> {
     map(
-        terminated(alt((not_line_ending, tag(""))), opt(line_ending)),
+        terminated(
+            alt((not_line_ending, tag(""))),
+            alt((value((), line_ending), eof)),
+        ),
         fragment,
     )(input)
+}
+
+fn eof(input: Span) -> ParseResult<()> {
+    use nom::InputLength;
+    if (input).input_len() == 0 {
+        Ok((input, ()))
+    } else {
+        Err(nom::Err::Error(make_error(input, ErrorKind::Eof)))
+    }
 }
 
 fn alphanumerisymbolic(input: Span) -> ParseResult<char> {
@@ -202,20 +214,19 @@ mod tests {
         }
 
         #[test]
-        fn comment_matches_a_comment_marker_to_the_end_of_the_line(comment_text in "#\\PC*", next_line in any::<String>()) {
-            let expected = comment_text[1..].to_string();
-            let input = comment_text.to_string() + "\n" + &next_line;
+        fn comment_matches_a_comment_marker_to_the_end_of_the_line(comment_text in "\\PC*", next_line in any::<String>()) {
+            let input = "#".to_string() + &comment_text + "\n" + &next_line;
             let span = Span::new(&input);
             let parsed = comment(span)?;
-            prop_assert_eq!((span.slice(comment_text.len() + 1..), expected.as_str()), parsed);
+            prop_assert_eq!((span.slice(comment_text.len() + 2..), comment_text.as_str()), parsed);
         }
 
         #[test]
-        fn comment_matches_a_comment_marker_on_the_last_line(input in "#\\PC*") {
-            let expected = input[1..].to_string();
+        fn comment_matches_a_comment_marker_on_the_last_line(comment_text in "\\PC*") {
+            let input = "#".to_string() + &comment_text;
             let span = Span::new(&input);
             let parsed = comment(span)?;
-            prop_assert_eq!((span.slice(input.len()..), expected.as_str()), parsed);
+            prop_assert_eq!((span.slice(input.len()..), comment_text.as_str()), parsed);
         }
 
         #[test]
@@ -385,6 +396,26 @@ mod tests {
             let span = Span::new(&input);
             let parsed = expression(span);
             prop_assert!(parsed.is_err(), "Parsing succeeded: {:?}", parsed);
+        }
+
+        #[test]
+        fn expression_strips_markup(
+            prefix in "\\s*(#[^\\PC\\r\\n]+\\n)?",
+            command in "[A-Za-z]+",
+            suffix in "\\s*(#[^\\PC\\r\\n]+)?",
+        ) {
+            let input = prefix + &command + &suffix;
+            let span = Span::new(&input);
+            let parsed = expression(span)?;
+
+            let expected = Positioned {
+                position: Position { line: 1, column: 1, offset: 0 },
+                value: Box::new(Expression::Command {
+                    command: Token::Raw { value: command },
+                    arguments: vec![],
+                })
+            };
+            prop_assert_eq!((span.slice(input.len()..), expected), parsed);
         }
     }
 }
