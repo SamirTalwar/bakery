@@ -116,6 +116,25 @@ impl Process {
     pub fn new(command: String, arguments: Vec<String>) -> Self {
         Process { command, arguments }
     }
+
+    fn spawn(&self, source: bool, next: Option<Output>) -> Result<process::Child> {
+        let stdin = if source {
+            process::Stdio::inherit()
+        } else {
+            process::Stdio::piped()
+        };
+        let stdout = match next {
+            None | Some(Output::StdOut(_)) => process::Stdio::inherit(),
+            Some(Output::File(file)) => process::Stdio::from(file),
+            Some(Output::Pipe(stdin)) => process::Stdio::from(stdin),
+        };
+        process::Command::new(&self.command)
+            .args(&self.arguments)
+            .stdin(stdin)
+            .stdout(stdout)
+            .spawn()
+            .map_err(errors::io)
+    }
 }
 
 impl Representable for Process {
@@ -126,32 +145,13 @@ impl Representable for Process {
 
 impl Block for Process {
     fn source(&self, next: Output) -> Result<()> {
-        let stdout = match next {
-            Output::StdOut(_) => process::Stdio::inherit(),
-            Output::File(file) => process::Stdio::from(file),
-            Output::Pipe(stdin) => process::Stdio::from(stdin),
-        };
-        let mut child = process::Command::new(&self.command)
-            .args(&self.arguments)
-            .stdout(stdout)
-            .spawn()
-            .map_err(errors::io)?;
+        let mut child = self.spawn(true, Some(next))?;
         child.wait().map_err(errors::io)?;
         Ok(())
     }
 
     fn conduit(&self, next: Output) -> Result<Output> {
-        let stdout = match next {
-            Output::StdOut(_) => process::Stdio::inherit(),
-            Output::File(file) => process::Stdio::from(file),
-            Output::Pipe(stdin) => process::Stdio::from(stdin),
-        };
-        let child = process::Command::new(&self.command)
-            .args(&self.arguments)
-            .stdin(process::Stdio::piped())
-            .stdout(stdout)
-            .spawn()
-            .map_err(errors::io)?;
+        let child = self.spawn(false, Some(next))?;
         match child.stdin {
             None => Err(Error::Impossible(
                 "Process STDIN is missing for conduit".to_string(),
@@ -161,11 +161,7 @@ impl Block for Process {
     }
 
     fn sink(&self) -> Result<Output> {
-        let child = process::Command::new(&self.command)
-            .args(&self.arguments)
-            .stdin(process::Stdio::piped())
-            .spawn()
-            .map_err(errors::io)?;
+        let child = self.spawn(false, None)?;
         match child.stdin {
             None => Err(Error::Impossible(
                 "Process STDIN is missing for sink".to_string(),
