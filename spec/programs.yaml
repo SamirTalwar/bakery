@@ -8,42 +8,6 @@ command:
   - eval
 
 tests:
-  - name: stdin-to-stdout
-    args:
-      - |
-        stdin |> stdout
-    stdin: |
-      Hello, world!
-    stdout: |
-      Hello, world!
-
-  - name: stdin-to-file
-    args:
-      - |
-        stdin |> file:output/file.out
-    stdin: |
-      What's up, planet?
-    files:
-      - path: output/file.out
-        contents: |
-          What's up, planet?
-    revert:
-      - output
-
-  - name: file-to-stdout
-    args:
-      - |
-        file:fixtures/file.in |> stdout
-    stdout:
-      file: fixtures/file.in
-
-  - name: write-static-text-to-stdout
-    args:
-      - |
-        "This is some static text." |> stdout
-    stdout: |
-      This is some static text.
-
   - name: run-simple-program
     args:
       - |
@@ -93,14 +57,3 @@ tests:
       one
       two
       2
-
-  - name: multiple-pipes
-    args:
-      - |
-        cat file:./fixtures/file.in |> tr "aeiouAEIOU" "AEIOUaeiou" |> file:./output/pipes.out
-    files:
-      - path: output/pipes.out
-        contents: |
-          oh, hEAvEns!
-    revert:
-      - output

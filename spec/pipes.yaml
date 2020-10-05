@@ -1,0 +1,29 @@
+working-directory: .
+
+command:
+  - cargo
+  - run
+  - --quiet
+  - --
+  - eval
+
+tests:
+  - name: single-pipe
+    args:
+      - |
+        stdin |> stdout
+    stdin: |
+      Hello, world!
+    stdout: |
+      Hello, world!
+
+  - name: multiple-pipes
+    args:
+      - |
+        cat file:./fixtures/file.in |> tr "aeiouAEIOU" "AEIOUaeiou" |> file:./output/pipes.out
+    files:
+      - path: output/pipes.out
+        contents: |
+          oh, hEAvEns!
+    revert:
+      - output
