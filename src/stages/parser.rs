@@ -8,48 +8,12 @@ use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::Slice;
 use nom_locate::{position, LocatedSpan};
 
-use super::errors::{Error, Result};
+use super::super::errors::{Error, Result};
+use super::super::parsed::*;
 
-type Span<'a> = LocatedSpan<&'a str>;
+pub type Span<'a> = LocatedSpan<&'a str>;
 
-type ParseResult<'a, T> = nom::IResult<Span<'a>, T>;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Program {
-    pub expression: Positioned<Expression>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expression {
-    Command {
-        command: Token,
-        arguments: Vec<Token>,
-    },
-    Pipe {
-        source: Positioned<Expression>,
-        sink: Positioned<Expression>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token {
-    Raw { value: String },
-    Identifier { namespace: String, id: String },
-    Text { contents: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Positioned<T> {
-    pub position: Position,
-    pub value: Box<T>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Position {
-    pub line: usize,
-    pub column: usize,
-    pub offset: usize,
-}
+pub type ParseResult<'a, T> = nom::IResult<Span<'a>, T>;
 
 pub fn parse(input: &str) -> Result<Program> {
     all_consuming(program)(Span::new(input))

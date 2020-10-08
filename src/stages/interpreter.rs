@@ -1,5 +1,5 @@
-use super::ast::{Block, Expression};
-use super::errors::{Error, Result};
+use super::super::ast::{Block, Expression};
+use super::super::errors::{Error, Result};
 
 pub fn interpret(expression: Expression) -> Result<()> {
     match expression {

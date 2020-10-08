@@ -1,7 +1,7 @@
 use std::io;
 use std::result;
 
-use super::parsers::{Expression, Token};
+use super::parsed::{Expression, Token};
 
 pub type Result<T> = result::Result<T, Error>;
 

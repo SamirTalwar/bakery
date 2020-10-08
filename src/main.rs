@@ -4,9 +4,8 @@ extern crate nom_locate;
 
 mod ast;
 mod errors;
-mod interpreter;
-mod parsers;
-mod resolve;
+mod parsed;
+mod stages;
 mod streams;
 
 use std::fs;
@@ -50,9 +49,9 @@ struct EvalCommand {
 fn main() -> Result<()> {
     let args: Args = argh::from_env();
     read_input(args.command)
-        .and_then(|input| parsers::parse(&input))
-        .and_then(resolve::program)
-        .and_then(interpreter::interpret)?;
+        .and_then(|input| stages::parser::parse(&input))
+        .and_then(stages::resolver::program)
+        .and_then(stages::interpreter::interpret)?;
     Ok(())
 }
 
