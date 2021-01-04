@@ -1,0 +1,25 @@
+#!/usr/bin/env bake
+
+git main |> $main_branch
+$main_branch |> regex/replace /^origin\// "" |> $unprefixed_main_branch
+
+remove-branches-in-use =
+  regex/match /^\* | ${main_branch}$| ${unprefixed_main_branch}$/
+    |> regex/replace /^ */ ""
+
+# Remove merged branches.
+git branch --merged $main_branch
+  |> split/lines
+  |> stream/each remove-branches-in-use
+  |> stream/non-empty
+  |> with (^ args -> git branch -d $args)
+
+# Remove branches that have been squashed and merged.
+git for-each-ref --format="%(refname:short)" refs/heads/
+  |> split/lines
+  |> stream/each (with (^ branch ->
+        errors/ignore {
+          git merge-base $main_branch $branch |> $merge_base
+          git cherry $main_branch (git commit-tree -p $merge_base -m _ (git rev-parse "${branch}^{tree}"))
+            |> if regex/match /^-/ then (git branch -D $branch) else ()
+        }))
