@@ -2,6 +2,9 @@
 .direnv
 .envrc.local
 
+# Agda
+*.agdai
+
 # Rust
 proptest-regressions
 /target
