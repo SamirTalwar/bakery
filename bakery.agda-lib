@@ -1,0 +1,3 @@
+name: bakery
+include: proofs
+depend: standard-library

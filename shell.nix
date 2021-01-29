@@ -8,6 +8,9 @@ pkgs.mkShell {
   name = "bakery";
 
   buildInputs = [
+    (pkgs.agda.withPackages(ps: [
+      ps.standard-library
+    ]))
     rust.cargo
     rust.clippy
     rust.rls
