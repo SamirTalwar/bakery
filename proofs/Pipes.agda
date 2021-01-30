@@ -1,7 +1,7 @@
 module Pipes where
 
 open import Codata.Thunk
-open import Data.Maybe using ()
+open import Data.Maybe
 open import Data.Product
 open import Function using (_∘_; id)
 import Relation.Binary.PropositionalEquality as Eq
@@ -9,26 +9,19 @@ open Eq
 open Eq.≡-Reasoning
 open import Relation.Nullary
 
-infixr 10 !_
-infixr 10 _%:_
+data Producer (T : Set) (State : Set) : Set where
+  producer : (State → Maybe T × State) → Producer T State
 
-data Producer (T : Set) : Set
-
-record NonEmptyProducer (T : Set) : Set where
-  constructor _%:_
-  coinductive
-  field
-    head : T
-    tail : Producer T
-
-data Producer T where
-  [] : Producer T
-  !_ : NonEmptyProducer T → Producer T
+pull : ∀ {T : Set} {State : Set}
+  → Producer T State
+  → State
+  → Maybe T × State
+pull (producer apply) state = apply state
 
 data Consumer (T : Set) (State : Set) : Set where
   consumer : (T → State → State) → Consumer T State
 
-push : {T : Set} {State : Set}
+push : ∀ {T : Set} {State : Set}
   → T
   → Consumer T State
   → State
@@ -39,31 +32,43 @@ module examples where
   open import Data.List
   open import Data.Nat
 
-  data Naturals : Set where
-    naturalsUpTo : ℕ → Naturals
+  record Counter (State : Set) : Set where
+    field
+      read : State → ℕ
+      write : ℕ → State → State
 
-  naturalsProducer : Naturals → Producer ℕ
-  naturalsProducer (naturalsUpTo n) = naturalsProducer′ n n
-    where
-    naturalsProducer′ : ℕ → ℕ → Producer ℕ
-    naturalsProducer′    zero n = []
-    naturalsProducer′ (suc m) n = ! (n ∸ m) %: naturalsProducer′ m n
+  counterProducer : {State : Set} → Counter State → Producer ℕ State
+  counterProducer record { read = read ; write = write } =
+    producer (λ state → let value = read state in just value , write (suc value) state)
 
-  _ : naturalsProducer (naturalsUpTo 5) ≡ ! 1 %: ! 2 %: ! 3 %: ! 4 %: ! 5 %: []
+  record CounterState : Set where
+    constructor counterState
+    field
+      counter : ℕ
+
+  _ : let prod = counterProducer {CounterState} record {
+                   read = CounterState.counter;
+                   write = λ new state → record state { counter = new }
+                 }
+          state₀ = counterState 0
+          n₁ , state₁ = pull prod state₀
+          n₂ , state₂ = pull prod state₁
+          n₃ , state₃ = pull prod state₂
+        in (n₁ ,′ n₂ ,′ n₃) ≡ (just 0 ,′ just 1 ,′ just 2)
   _ = refl
 
-  record Collector {T : Set} {S : Set} : Set where
+  record Collector {T : Set} {State : Set} : Set where
     field
-      read : S → List T
-      write : List T → S → S
+      read : State → List T
+      write : List T → State → State
 
-  collectorConsumer : ∀ {T : Set} → {S : Set}
-    → Collector {T} {S}
-    → Consumer T S
+  collectorConsumer : ∀ {T : Set} → {State : Set}
+    → Collector {T} {State}
+    → Consumer T State
   collectorConsumer record { read = read ; write = write } =
     consumer (λ item state → write (item ∷ (read state)) state)
 
-  _ : let snk = collectorConsumer {ℕ} record { read = id ; write = λ new _ → new }
-        in (push 3 snk ∘ push 2 snk ∘ push 1 snk) []
+  _ : let con = collectorConsumer {ℕ} record { read = id ; write = λ new _ → new }
+        in (push 3 con ∘ push 2 con ∘ push 1 con) []
       ≡ 3 ∷ 2 ∷ 1 ∷ []
   _ = refl
