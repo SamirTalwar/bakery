@@ -1,13 +1,7 @@
 module Pipes where
 
-open import Codata.Thunk
 open import Data.Maybe
 open import Data.Product
-open import Function using (_∘_; id)
-import Relation.Binary.PropositionalEquality as Eq
-open Eq
-open Eq.≡-Reasoning
-open import Relation.Nullary
 
 data Producer (T : Set) (State : Set) : Set where
   producer : (State → Maybe T × State) → Producer T State
@@ -31,6 +25,10 @@ push item (consumer apply) state = apply item state
 module examples where
   open import Data.List
   open import Data.Nat
+  open import Function using (_∘_; id)
+  import Relation.Binary.PropositionalEquality as Eq
+  open Eq
+  open Eq.≡-Reasoning
 
   record Counter (State : Set) : Set where
     field
