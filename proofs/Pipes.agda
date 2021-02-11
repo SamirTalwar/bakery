@@ -29,25 +29,28 @@ module examples where
   import Relation.Binary.PropositionalEquality as Eq
   open Eq
   open Eq.≡-Reasoning
+  import Lens
+  open Lens using (Lens)
 
-  record Counter (State : Set) : Set where
-    field
-      read : State → ℕ
-      write : ℕ → State → State
-
-  counterProducer : {State : Set} → Counter State → Producer ℕ State
-  counterProducer record { read = read ; write = write } =
-    producer (λ state → let value = read state in just value , write (suc value) state)
+  counterProducer : {State : Set} → Lens State ℕ → Producer ℕ State
+  counterProducer lens =
+    producer (λ state → let value = Lens.get lens state in just value , Lens.put lens (suc value) state)
 
   record CounterState : Set where
     constructor counterState
     field
       counter : ℕ
 
-  _ : let prod = counterProducer {CounterState} record {
-                   read = CounterState.counter;
-                   write = λ new state → record state { counter = new }
-                 }
+  counterLens : Lens CounterState ℕ
+  counterLens = record {
+                    get = CounterState.counter
+                  ; put = λ new state → record state { counter = new }
+                  ; law-get-put = λ{ whole → refl }
+                  ; law-put-get = λ{ whole part → refl }
+                  ; law-put-put = λ{ whole part1 part2 → refl }
+                }
+
+  _ : let prod = counterProducer counterLens
           state₀ = counterState 0
           n₁ , state₁ = pull prod state₀
           n₂ , state₂ = pull prod state₁
@@ -55,18 +58,12 @@ module examples where
         in (n₁ ,′ n₂ ,′ n₃) ≡ (just 0 ,′ just 1 ,′ just 2)
   _ = refl
 
-  record Collector {T : Set} {State : Set} : Set where
-    field
-      read : State → List T
-      write : List T → State → State
-
-  collectorConsumer : ∀ {T : Set} → {State : Set}
-    → Collector {T} {State}
+  listConsumer : ∀ {T : Set} → {State : Set}
+    → Lens State (List T)
     → Consumer T State
-  collectorConsumer record { read = read ; write = write } =
-    consumer (λ item state → write (item ∷ (read state)) state)
+  listConsumer lens = consumer (λ item state → Lens.put lens (item ∷ (Lens.get lens state)) state)
 
-  _ : let con = collectorConsumer {ℕ} record { read = id ; write = λ new _ → new }
+  _ : let con = listConsumer Lens.id
         in (push 3 con ∘ push 2 con ∘ push 1 con) []
       ≡ 3 ∷ 2 ∷ 1 ∷ []
   _ = refl
