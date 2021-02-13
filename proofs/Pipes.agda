@@ -157,9 +157,18 @@ module examples where
   counterRunsOutOfFuel : ∀ (input : ℕ) (fuel : ℕ)
     → runPipe (counterProducer Lens.id |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
   counterRunsOutOfFuel _ zero = refl
-  counterRunsOutOfFuel input (suc fuel) = counterRunsOutOfFuel (suc input) fuel
+  counterRunsOutOfFuel input (suc fuel) =
+    counterRunsOutOfFuel (suc input) fuel
 
-  consumerCanStopFlow : ∀ (input : ℕ) (fuel : ℕ)
-    → runPipe (counterProducer Lens.id |> nullConsumer) input fuel ≡ inj₂ input
-  consumerCanStopFlow input       zero = refl
-  consumerCanStopFlow input (suc fuel) = consumerCanStopFlow input fuel
+  steadyStateProducerRunsOutOfFuel : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
+    → ∃[ value ] (pull prod input ≡ (just value , input))
+    → runPipe (prod |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
+  steadyStateProducerRunsOutOfFuel _ _ zero _ = refl
+  steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
+    steadyStateProducerRunsOutOfFuel prod input fuel (value , isInfinite)
+
+  consumerCanStopFlow : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
+    → runPipe (prod |> nullConsumer) input fuel ≡ inj₂ input
+  consumerCanStopFlow _ _ zero = refl
+  consumerCanStopFlow prod input (suc fuel) =
+    consumerCanStopFlow prod input fuel
