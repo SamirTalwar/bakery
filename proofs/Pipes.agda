@@ -5,26 +5,37 @@ open import Data.Nat
 open import Data.Product
 open import Data.Sum
 
+infixr 10 _|>_
+
+data Transformer (T : Set) : Set₁ where
+  transformer : (T → T) → Transformer T
+
 data Producer (T State : Set) : Set₁ where
   producer : (State → Maybe T × State) → Producer T State
+  _|>_ : Producer T State → Transformer T → Producer T State
 
 pull : ∀ {T State : Set}
   → Producer T State
   → State
   → Maybe T × State
 pull (producer apply) state = apply state
+pull (prod |> (transformer f)) state with pull prod state
+... |    nothing , newState = nothing , newState
+... | just value , newState = (just (f value)) , newState
 
 data Consumer (T State : Set) : Set₁ where
   stop : Consumer T State
   consumer : (T → State → State) → Consumer T State
+  _|>_ : Transformer T → Consumer T State → Consumer T State
 
 push : ∀ {T State : Set}
   → T
   → Consumer T State
   → State
   → State
-push    _             stop state = state
+push    _ stop state = state
 push item (consumer apply) state = apply item state
+push item (transformer f |> con) state = push (f item) con state
 
 data Pipe (State : Set) : Set₁ where
   _|>_ : {T : Set} → Producer T State → Consumer T State → Pipe State
@@ -33,9 +44,9 @@ data OutOfFuel : Set where
   outOfFuel : OutOfFuel
 
 runPipe : {State : Set} → Pipe State → State → ℕ → OutOfFuel ⊎ State
-runPipe pipe@(prod |>             stop) state          _ = inj₂ state
-runPipe      (   _ |>       consumer _)     _       zero = inj₁ outOfFuel
-runPipe pipe@(prod |> con@(consumer _)) state (suc fuel) with pull prod state
+runPipe      (prod |> stop) state          _ = inj₂ state
+runPipe      (   _ |>    _)     _       zero = inj₁ outOfFuel
+runPipe pipe@(prod |>  con) state (suc fuel) with pull prod state
 ... |    nothing , newState = inj₂ newState
 ... | just value , newState = runPipe pipe (push value con newState) fuel
 
@@ -167,8 +178,10 @@ module examples where
   steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
     steadyStateProducerRunsOutOfFuel prod input fuel (value , isInfinite)
 
-  consumerCanStopFlow : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
-    → runPipe (prod |> nullConsumer) input fuel ≡ inj₂ input
-  consumerCanStopFlow _ _ zero = refl
-  consumerCanStopFlow prod input (suc fuel) =
-    consumerCanStopFlow prod input fuel
+  consumerCanStopFlow : ∀ {T State : Set} (prod : Producer T State) (input : State)
+    → ∃[ fuel ] (runPipe (prod |> nullConsumer) input fuel ≡ inj₂ input)
+  consumerCanStopFlow _ _ = zero , refl
+
+  _ : runPipe (listProducer twoListsInput |> transformer (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
+      ≡ inj₂ (record { input = [] ; output = 6 ∷ 4 ∷ 2 ∷ [] })
+  _ = refl
