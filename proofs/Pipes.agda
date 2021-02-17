@@ -6,7 +6,7 @@ open import Data.Nat
 open import Data.Product
 open import Data.Sum
 open import Data.Unit
-open import Function using (_$_)
+import Function
 
 infixr 10 _|>_
 
@@ -85,9 +85,7 @@ runPipeline pipeline@(record { iterate = iterate }) state (suc fuel) with iterat
 ... | continue nothing newState = runPipeline pipeline newState fuel
 
 module Reasoning where
-  import Relation.Binary.PropositionalEquality as Eq
-  open Eq
-  open Eq.≡-Reasoning
+  open import Relation.Binary.PropositionalEquality
 
   open import Category
 
@@ -152,13 +150,13 @@ module Common where
   blackHoleConsumer : ∀ {T State} → Consumer T State
   blackHoleConsumer = consumer λ _ state → continue nothing state
 
+  repeatProducer : {T State : Set} → (value : T) → Producer T State
+  repeatProducer value = producer λ state → just value , state
+
 module examples where
-  open import Data.Empty
   open import Data.List
-  open import Function using (_∘_; id)
-  import Relation.Binary.PropositionalEquality as Eq
-  open Eq
-  open Eq.≡-Reasoning
+  open import Relation.Binary.PropositionalEquality
+  open Relation.Binary.PropositionalEquality.≡-Reasoning
 
   open import Lens using (Lens)
   open Common
@@ -180,9 +178,6 @@ module examples where
   definitelyPush input con state with push input con state
   ... | stop newState = newState
   ... | continue nothing newState = newState
-
-  repeatProducer : {T State : Set} → (value : T) → Producer T State
-  repeatProducer value = producer λ state → just value , state
 
   counterProducer : {State : Set} → Lens State ℕ → Producer ℕ State
   counterProducer lens = producer λ state → let value = Lens.get lens state in just value , Lens.put lens (suc value) state

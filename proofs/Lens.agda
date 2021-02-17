@@ -1,9 +1,8 @@
 module Lens where
 
 import Function
-import Relation.Binary.PropositionalEquality as Eq
-open Eq
-open Eq.≡-Reasoning
+open import Relation.Binary.PropositionalEquality
+open Relation.Binary.PropositionalEquality.≡-Reasoning
 
 record Lens A B : Set where
   field
