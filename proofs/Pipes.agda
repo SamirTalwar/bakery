@@ -91,6 +91,31 @@ runPipeline pipeline@(record { iterate = iterate }) state (suc fuel) with iterat
 ... | result     stop nothing newState = inj₂ newState
 ... | result continue nothing newState = runPipeline pipeline newState fuel
 
+module Reasoning where
+  import Relation.Binary.PropositionalEquality as Eq
+  open Eq
+  open Eq.≡-Reasoning
+
+  postulate
+    Pipe-≡ : ∀ {I O State : Set} (pipe₁ : Pipe I O State) (pipe₂ : Pipe I O State)
+      → (∀ (input : I) (state : State) → Pipe.iterate pipe₁ input state ≡ Pipe.iterate pipe₂ input state)
+      → pipe₁ ≡ pipe₂
+
+  |>-associative : ∀ {A B C D State : Set} (a : Pipe A B State) (b : Pipe B C State) (c : Pipe C D State)
+    → a |> (b |> c) ≡ (a |> b) |> c
+  |>-associative a b c = Pipe-≡ (a |> (b |> c)) ((a |> b) |> c) (associative′ a b c)
+    where
+    associative′ : ∀ {A B C D State : Set} (a : Pipe A B State) (b : Pipe B C State) (c : Pipe C D State) (input : A) (state : State)
+      → Pipe.iterate (a |> (b |> c)) input state ≡ Pipe.iterate ((a |> b) |> c) input state
+    associative′ record { iterate = iterateA } record { iterate = iterateB } record { iterate = iterateC } input state
+      with iterateA input state
+    ... | result stop _ _ = refl
+    ... | result continue nothing _ = refl
+    ... | result continue (just value₁) state₁ with iterateB value₁ state₁
+    ...     | result stop _ _ = refl
+    ...     | result continue nothing _ = refl
+    ...     | result continue (just _) _ = refl
+
 module Common where
   nullProducer : ∀ {T State} → Producer T State
   nullProducer = producer λ state → nothing , state
@@ -231,19 +256,3 @@ module examples where
   _ : runPipeline (listProducer twoListsInput |> transformer (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
       ≡ inj₂ (record { input = [] ; output = 6 ∷ 4 ∷ 2 ∷ [] })
   _ = refl
-
-  postulate
-    Pipe-≡ : ∀ {I O State : Set} (pipe₁ : Pipe I O State) (pipe₂ : Pipe I O State)
-      → (∀ (input : I) (state : State) → Pipe.iterate pipe₁ input state ≡ Pipe.iterate pipe₂ input state)
-      → pipe₁ ≡ pipe₂
-
-  associative : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T T) (con : Consumer T State)
-    → prod |> (trans |> con) ≡ (prod |> trans) |> con
-  associative prod trans con = Pipe-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (λ _ → associative′ prod trans con)
-    where
-    associative′ : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T T) (con : Consumer T State) (state : State)
-      → Pipe.iterate (prod |> (trans |> con)) tt state ≡ Pipe.iterate ((prod |> trans) |> con) tt state
-    associative′ prod@record { iterate = p } trans@record { iterate = t } con@record { iterate = c } state with pull prod state
-    ... | result stop _ pulledState = refl
-    ... | result continue nothing pulledState = refl
-    ... | result continue (just value) pulledState = refl
