@@ -70,6 +70,9 @@ Transformer {State} A B = Pipe A B State
 transformer : ∀ {State : Set} → {A B : Set} → (A → B) → Pipe A B State
 transformer f = record { iterate = λ input state → result continue (just (f input)) state }
 
+id : ∀ {State : Set} → {T : Set} → Pipe T T State
+id = transformer Function.id
+
 _|>_ : {I T O State : Set} → Pipe I T State → Pipe T O State → Pipe I O State
 prod |> con = record { iterate = iterate prod con }
   where
@@ -96,17 +99,19 @@ module Reasoning where
   open Eq
   open Eq.≡-Reasoning
 
+  open import Category
+
   postulate
     Pipe-≡ : ∀ {I O State : Set} (pipe₁ : Pipe I O State) (pipe₂ : Pipe I O State)
       → (∀ (input : I) (state : State) → Pipe.iterate pipe₁ input state ≡ Pipe.iterate pipe₂ input state)
       → pipe₁ ≡ pipe₂
 
   |>-associative : ∀ {A B C D State : Set} (a : Pipe A B State) (b : Pipe B C State) (c : Pipe C D State)
-    → a |> (b |> c) ≡ (a |> b) |> c
-  |>-associative a b c = Pipe-≡ (a |> (b |> c)) ((a |> b) |> c) (associative′ a b c)
+    → (a |> b) |> c ≡ a |> (b |> c)
+  |>-associative a b c = Pipe-≡ ((a |> b) |> c) (a |> (b |> c)) (associative′ a b c)
     where
     associative′ : ∀ {A B C D State : Set} (a : Pipe A B State) (b : Pipe B C State) (c : Pipe C D State) (input : A) (state : State)
-      → Pipe.iterate (a |> (b |> c)) input state ≡ Pipe.iterate ((a |> b) |> c) input state
+      → Pipe.iterate ((a |> b) |> c) input state ≡ Pipe.iterate (a |> (b |> c)) input state
     associative′ record { iterate = iterateA } record { iterate = iterateB } record { iterate = iterateC } input state
       with iterateA input state
     ... | result stop _ _ = refl
@@ -115,6 +120,16 @@ module Reasoning where
     ...     | result stop _ _ = refl
     ...     | result continue nothing _ = refl
     ...     | result continue (just _) _ = refl
+
+  PipeForState : (State I O : Set) → Set₁
+  PipeForState State I O = Pipe I O State
+
+  pipes-are-categories : ∀ {State : Set} → Category Set (PipeForState State)
+  pipes-are-categories = record {
+    _∘_ = λ g f → f |> g ;
+    id = id ;
+    assoc = λ h g f → |>-associative f g h
+    }
 
 module Common where
   nullProducer : ∀ {T State} → Producer T State
@@ -133,8 +148,8 @@ module examples where
   import Relation.Binary.PropositionalEquality as Eq
   open Eq
   open Eq.≡-Reasoning
-  import Lens
-  open Lens using (Lens)
+
+  open import Lens using (Lens)
   open Common
 
   repeatProducer : {T State : Set} → (value : T) → Producer T State
