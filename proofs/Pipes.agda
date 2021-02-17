@@ -1,64 +1,105 @@
 module Pipes where
 
+open import Data.Empty
 open import Data.Maybe
 open import Data.Nat
 open import Data.Product
 open import Data.Sum
+open import Data.Unit
 open import Function using (_$_)
 
 infixr 10 _|>_
 
-data Transformer (T : Set) : Set₁ where
-  transformer : (T → T) → Transformer T
+data Progress : Set where
+  stop : Progress
+  continue : Progress
 
-data Producer (T State : Set) : Set₁ where
-  producer : (State → Maybe T × State) → Producer T State
-  _|>_ : Producer T State → Transformer T → Producer T State
+record Result (T State : Set) : Set where
+  constructor result
+  field
+    progress : Progress
+    value : Maybe T
+    state : State
+
+Iterate : (I O State : Set) → Set
+Iterate I O State = I → State → Result O State
+
+record Pipe (I O State : Set) : Set₁ where
+  field
+    iterate : Iterate I O State
+
+Producer : Set → Set → Set₁
+Producer = Pipe ⊤
+
+producer : {O State : Set} → (State → Maybe O × State) → Producer O State
+producer apply = record { iterate = iterate apply }
+  where
+  iterate : {O State : Set} → (State → Maybe O × State) → Iterate ⊤ O State
+  iterate apply tt state with apply state
+  ... |    nothing , newState = result stop nothing newState
+  ... | just value , newState = result continue (just value) newState
+
+Consumer : Set → Set → Set₁
+Consumer I = Pipe I ⊥
+
+consumer : {I State : Set} → (I → State → Progress × State) → Consumer I State
+consumer apply = record { iterate = iterate apply }
+  where
+  iterate : {I State : Set} → (I → State → Progress × State) → Iterate I ⊥ State
+  iterate apply input state with apply input state
+  ... | progress , newState = result progress nothing newState
 
 pull : ∀ {T State : Set}
   → Producer T State
   → State
-  → Maybe T × State
-pull (producer apply) state = apply state
-pull (prod |> (transformer f)) state with pull prod state
-... |    nothing , newState = nothing , newState
-... | just value , newState = (just (f value)) , newState
-
-data Consumer (T State : Set) : Set₁ where
-  consumer : (T → State → Maybe State) → Consumer T State
-  _|>_ : Transformer T → Consumer T State → Consumer T State
+  → Result T State
+pull (record { iterate = iterate }) state = iterate tt state
 
 push : ∀ {T State : Set}
   → T
   → Consumer T State
   → State
-  → Maybe State
-push item (consumer apply) state = apply item state
-push item (transformer f |> con) state = push (f item) con state
+  → Progress × State
+push item (record { iterate = iterate }) state
+  with iterate item state
+... | result progress nothing newState = progress , newState
 
-data Pipeline (State : Set) : Set₁ where
-  _|>_ : {T : Set} → Producer T State → Consumer T State → Pipeline State
+Transformer : ∀ {State : Set} → (A B : Set) → Set₁
+Transformer {State} A B = Pipe A B State
+
+transformer : ∀ {State : Set} → {A B : Set} → (A → B) → Pipe A B State
+transformer f = record { iterate = λ input state → result continue (just (f input)) state }
+
+_|>_ : {I T O State : Set} → Pipe I T State → Pipe T O State → Pipe I O State
+prod |> con = record { iterate = iterate prod con }
+  where
+  iterate : {I T O State : Set} → Pipe I T State → Pipe T O State → I → State → Result O State
+  iterate (record {iterate = iterateUp}) (record {iterate = iterateDown}) input state with iterateUp input state
+  ... | result     stop       output pulledState = result stop nothing pulledState
+  ... | result continue      nothing pulledState = result stop nothing pulledState
+  ... | result continue (just value) pulledState = iterateDown value pulledState
+
+Pipeline : Set → Set₁
+Pipeline = Pipe ⊤ ⊥
 
 data OutOfFuel : Set where
   outOfFuel : OutOfFuel
 
 runPipeline : {State : Set} → Pipeline State → State → ℕ → OutOfFuel ⊎ State
-runPipeline      (   _ |>    _)     _       zero = inj₁ outOfFuel
-runPipeline pipe@(prod |>  con) state (suc fuel) with pull prod state
-... |    nothing , pulledState = inj₂ pulledState
-... | just value , pulledState with push value con pulledState
-...     | nothing = inj₂ pulledState
-...     | just newState = runPipeline pipe newState fuel
+runPipeline _ _ zero = inj₁ outOfFuel
+runPipeline pipeline@(record { iterate = iterate }) state (suc fuel) with iterate tt state
+... | result     stop nothing newState = inj₂ newState
+... | result continue nothing newState = runPipeline pipeline newState fuel
 
 module Common where
   nullProducer : ∀ {T State} → Producer T State
   nullProducer = producer λ state → nothing , state
 
   nullConsumer : ∀ {T State} → Consumer T State
-  nullConsumer = consumer λ _ _ → nothing
+  nullConsumer = consumer λ _ state → stop , state
 
   blackHoleConsumer : ∀ {T State} → Consumer T State
-  blackHoleConsumer = consumer λ _ state → just state
+  blackHoleConsumer = consumer λ _ state → continue , state
 
 module examples where
   open import Data.Empty
@@ -75,8 +116,7 @@ module examples where
   repeatProducer value = producer λ state → just value , state
 
   counterProducer : {State : Set} → Lens State ℕ → Producer ℕ State
-  counterProducer lens =
-    producer λ state → let value = Lens.get lens state in just value , Lens.put lens (suc value) state
+  counterProducer lens = producer λ state → let value = Lens.get lens state in just value , Lens.put lens (suc value) state
 
   record CounterState : Set where
     constructor counterState
@@ -94,17 +134,18 @@ module examples where
 
   _ : let prod = counterProducer counterLens
           state₀ = counterState 0
-          n₁ , state₁ = pull prod state₀
-          n₂ , state₂ = pull prod state₁
-          n₃ , state₃ = pull prod state₂
-        in (n₁ ,′ n₂ ,′ n₃ ,′ state₃) ≡ (just 0 ,′ just 1 ,′ just 2 ,′ counterState 3)
+          result p₁ n₁ state₁ = pull prod state₀
+          result p₂ n₂ state₂ = pull prod state₁
+          result p₃ n₃ state₃ = pull prod state₂
+          ns = n₁ ∷ n₂ ∷ n₃ ∷ []
+        in (ns ,′ state₃) ≡ ((just 0 ∷ just 1 ∷ just 2 ∷ []) ,′ counterState 3)
   _ = refl
 
   listProducer : ∀ {T State : Set}
     → Lens State (List T)
     → Producer T State
-  listProducer lens = producer λ state →
-      let output , list = listProducer′ (Lens.get lens state) in output , Lens.put lens list state
+  listProducer lens =
+    producer λ state → let output , list = listProducer′ (Lens.get lens state) in output , (Lens.put lens list state)
     where
     listProducer′ : ∀ {T : Set} → List T → Maybe T × List T
     listProducer′       [] = nothing , []
@@ -112,24 +153,24 @@ module examples where
 
   _ : let prod = listProducer Lens.id
           state₀ = 1 ∷ 2 ∷ 3 ∷ []
-          n₁ , state₁ = pull prod state₀
-          n₂ , state₂ = pull prod state₁
-          n₃ , state₃ = pull prod state₂
-        in (n₁ ,′ n₂ ,′ n₃ ,′ state₃) ≡ (just 1 ,′ just 2 ,′ just 3 ,′ [])
+          result p₁ n₁ state₁ = pull prod state₀
+          result p₂ n₂ state₂ = pull prod state₁
+          result p₃ n₃ state₃ = pull prod state₂
+          ns = n₁ ∷ n₂ ∷ n₃ ∷ []
+        in (ns ,′ state₃) ≡ ((just 1 ∷ just 2 ∷ just 3 ∷ []) ,′ [])
   _ = refl
 
   listConsumer : ∀ {T State : Set}
     → Lens State (List T)
     → Consumer T State
-  listConsumer lens = consumer λ item state → just $ Lens.put lens (item ∷ (Lens.get lens state)) state
+  listConsumer lens = consumer λ item state → continue , (Lens.put lens (item ∷ (Lens.get lens state)) state)
 
   _ : let con = listConsumer Lens.id
-          state = do
-            state₀ ← just []
-            state₁ ← push 1 con state₀
-            state₂ ← push 2 con state₁
-            push 3 con state₂
-          in state ≡ just (3 ∷ 2 ∷ 1 ∷ [])
+          state₀ = []
+          p₁ , state₁ = push 1 con state₀
+          p₂ , state₂ = push 2 con state₁
+          p₃ , state₃ = push 3 con state₂
+          in (p₃ ,′ state₃) ≡ (continue , (3 ∷ 2 ∷ 1 ∷ []))
   _ = refl
 
   record TwoLists (T : Set) : Set where
@@ -177,7 +218,7 @@ module examples where
     counterRunsOutOfFuel (suc input) fuel
 
   steadyStateProducerRunsOutOfFuel : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
-    → ∃[ value ] (pull prod input ≡ (just value , input))
+    → ∃[ value ] (pull prod input ≡ result continue (just value) input)
     → runPipeline (prod |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
   steadyStateProducerRunsOutOfFuel _ _ zero _ = refl
   steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
@@ -192,42 +233,17 @@ module examples where
   _ = refl
 
   postulate
-    Producer-≡ : ∀ {T State : Set} (prod₁ : Producer T State) (prod₂ : Producer T State)
-      → (∀ (state : State) → pull prod₁ state ≡ pull prod₂ state)
-      → prod₁ ≡ prod₂
-
-    Consumer-≡ : ∀ {T State : Set} (con₁ : Consumer T State) (con₂ : Consumer T State) (item : T)
-      → (∀ (state : State) → push item con₁ state ≡ push item con₂ state)
-      → con₁ ≡ con₂
-
-    Pipeline-≡ : ∀ {State : Set} (pipe₁ : Pipeline State) (pipe₂ : Pipeline State)
-      → (∀ (state : State) (fuel : ℕ) → runPipeline pipe₁ state fuel ≡ runPipeline pipe₂ state fuel)
+    Pipe-≡ : ∀ {I O State : Set} (pipe₁ : Pipe I O State) (pipe₂ : Pipe I O State)
+      → (∀ (input : I) (state : State) → Pipe.iterate pipe₁ input state ≡ Pipe.iterate pipe₂ input state)
       → pipe₁ ≡ pipe₂
 
-  associative : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State)
+  associative : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T T) (con : Consumer T State)
     → prod |> (trans |> con) ≡ (prod |> trans) |> con
-  associative prod trans con = Pipeline-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (associative′ prod trans con)
+  associative prod trans con = Pipe-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (λ _ → associative′ prod trans con)
     where
-    associative′ : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State) (state : State) (fuel : ℕ)
-      → runPipeline (prod |> (trans |> con)) state fuel ≡ runPipeline ((prod |> trans) |> con) state fuel
-    associative′ _ _ _ _ zero = refl
-    associative′ (producer p) (transformer t) (consumer c) state (suc fuel) with pull (producer p) state
-    ... | nothing , pulledState = refl
-    ... | just value , pulledState with push value (transformer t |> consumer c) pulledState
-    ...     | nothing = refl
-    ...     | just newState = associative′ (producer p) (transformer t) (consumer c) newState fuel
-    associative′ (producer p) (transformer t) (c₁ |> c₂) state (suc fuel) with pull (producer p) state
-    ... | nothing , pulledState = refl
-    ... | just value , pulledState with push value (transformer t |> (c₁ |> c₂)) pulledState
-    ... |     nothing = refl
-    ... |     just newState = associative′ (producer p) (transformer t) (c₁ |> c₂) newState fuel
-    associative′   (p₁ |> p₂) (transformer t) (consumer c) state (suc fuel) with pull (p₁ |> p₂) state
-    ... | nothing , pulledState = refl
-    ... | just value , pulledState with push value (transformer t |> consumer c) pulledState
-    ... |     nothing = refl
-    ... |     just newState = associative′ (p₁ |> p₂) (transformer t) (consumer c) newState fuel
-    associative′   (p₁ |> p₂) (transformer t) (c₁ |> c₂) state (suc fuel) with pull (p₁ |> p₂) state
-    ... | nothing , pulledState = refl
-    ... | just value , pulledState with push value (transformer t |> (c₁ |> c₂)) pulledState
-    ... |     nothing = refl
-    ... |     just newState = associative′ (p₁ |> p₂) (transformer t) (c₁ |> c₂) newState fuel
+    associative′ : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T T) (con : Consumer T State) (state : State)
+      → Pipe.iterate (prod |> (trans |> con)) tt state ≡ Pipe.iterate ((prod |> trans) |> con) tt state
+    associative′ prod@record { iterate = p } trans@record { iterate = t } con@record { iterate = c } state with pull prod state
+    ... | result stop _ pulledState = refl
+    ... | result continue nothing pulledState = refl
+    ... | result continue (just value) pulledState = refl
