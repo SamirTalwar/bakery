@@ -1,5 +1,6 @@
 module Lens where
 
+open import Data.Product
 import Function
 open import Relation.Binary.PropositionalEquality
 open Relation.Binary.PropositionalEquality.≡-Reasoning
@@ -12,6 +13,12 @@ record Lens A B : Set where
     law-get-put : ∀ (whole : A) → put (get whole) whole ≡ whole
     law-put-get : ∀ (whole : A) (part : B) → get (put part whole) ≡ part
     law-put-put : ∀ (whole : A) (part1 part2 : B) → put part2 (put part1 whole) ≡ put part2 whole
+
+  modify : (B → B) → A → A
+  modify f a = put (f (get a)) a
+
+  get-and-modify : (B → B) → A → B × A
+  get-and-modify f a = let b = get a in b , put (f b) a
 
 id : ∀ {A} → Lens A A
 id =

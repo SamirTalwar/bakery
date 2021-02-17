@@ -180,7 +180,7 @@ module examples where
   ... | continue nothing newState = newState
 
   counterProducer : {State : Set} → Lens State ℕ → Producer ℕ State
-  counterProducer lens = producer λ state → let value = Lens.get lens state in just value , Lens.put lens (suc value) state
+  counterProducer lens = producer λ state → let value , newState = Lens.get-and-modify lens suc state in just value , newState
 
   record CounterState : Set where
     constructor counterState
@@ -227,7 +227,7 @@ module examples where
   listConsumer : ∀ {T State : Set}
     → Lens State (List T)
     → Consumer T State
-  listConsumer lens = consumer λ item state → continue nothing (Lens.put lens (item ∷ (Lens.get lens state)) state)
+  listConsumer lens = consumer λ item state → continue nothing (Lens.modify lens (item ∷_) state)
 
   _ : let con = listConsumer Lens.id
           state₀ = []
