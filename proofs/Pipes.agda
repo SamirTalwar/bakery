@@ -36,19 +36,19 @@ push : ∀ {T State : Set}
 push item (consumer apply) state = apply item state
 push item (transformer f |> con) state = push (f item) con state
 
-data Pipe (State : Set) : Set₁ where
-  _|>_ : {T : Set} → Producer T State → Consumer T State → Pipe State
+data Pipeline (State : Set) : Set₁ where
+  _|>_ : {T : Set} → Producer T State → Consumer T State → Pipeline State
 
 data OutOfFuel : Set where
   outOfFuel : OutOfFuel
 
-runPipe : {State : Set} → Pipe State → State → ℕ → OutOfFuel ⊎ State
-runPipe      (   _ |>    _)     _       zero = inj₁ outOfFuel
-runPipe pipe@(prod |>  con) state (suc fuel) with pull prod state
+runPipeline : {State : Set} → Pipeline State → State → ℕ → OutOfFuel ⊎ State
+runPipeline      (   _ |>    _)     _       zero = inj₁ outOfFuel
+runPipeline pipe@(prod |>  con) state (suc fuel) with pull prod state
 ... |    nothing , pulledState = inj₂ pulledState
 ... | just value , pulledState with push value con pulledState
 ...     | nothing = inj₂ pulledState
-...     | just newState = runPipe pipe newState fuel
+...     | just newState = runPipeline pipe newState fuel
 
 module Common where
   nullProducer : ∀ {T State} → Producer T State
@@ -160,34 +160,34 @@ module examples where
       ; law-put-put = λ whole part1 part2 → refl
       }
 
-  _ : runPipe (listProducer twoListsInput |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
+  _ : runPipeline (listProducer twoListsInput |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
       ≡ inj₂ (record { input = [] ; output = 3 ∷ 2 ∷ 1 ∷ [] })
   _ = refl
 
   reversesLists : ∀ {T : Set} (input : List T) (output : List T)
-    → runPipe (listProducer twoListsInput |> listConsumer twoListsOutput) (record { input = input ; output = output }) (suc (length input))
+    → runPipeline (listProducer twoListsInput |> listConsumer twoListsOutput) (record { input = input ; output = output }) (suc (length input))
       ≡ inj₂ (record { input = [] ; output = input ʳ++ output })
   reversesLists [] output = refl
   reversesLists input@(x ∷ xs) output = reversesLists xs (x ∷ output)
 
   counterRunsOutOfFuel : ∀ (input : ℕ) (fuel : ℕ)
-    → runPipe (counterProducer Lens.id |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
+    → runPipeline (counterProducer Lens.id |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
   counterRunsOutOfFuel _ zero = refl
   counterRunsOutOfFuel input (suc fuel) =
     counterRunsOutOfFuel (suc input) fuel
 
   steadyStateProducerRunsOutOfFuel : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
     → ∃[ value ] (pull prod input ≡ (just value , input))
-    → runPipe (prod |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
+    → runPipeline (prod |> blackHoleConsumer) input fuel ≡ inj₁ outOfFuel
   steadyStateProducerRunsOutOfFuel _ _ zero _ = refl
   steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
     steadyStateProducerRunsOutOfFuel prod input fuel (value , isInfinite)
 
   consumerCanStopFlow : ∀ {T State : Set} (value : T) (input : State)
-    → ∃[ fuel ] (runPipe (repeatProducer value |> nullConsumer) input fuel ≡ inj₂ input)
+    → ∃[ fuel ] (runPipeline (repeatProducer value |> nullConsumer) input fuel ≡ inj₂ input)
   consumerCanStopFlow prod input = 1 , refl
 
-  _ : runPipe (listProducer twoListsInput |> transformer (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
+  _ : runPipeline (listProducer twoListsInput |> transformer (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
       ≡ inj₂ (record { input = [] ; output = 6 ∷ 4 ∷ 2 ∷ [] })
   _ = refl
 
@@ -200,16 +200,16 @@ module examples where
       → (∀ (state : State) → push item con₁ state ≡ push item con₂ state)
       → con₁ ≡ con₂
 
-    Pipe-≡ : ∀ {State : Set} (pipe₁ : Pipe State) (pipe₂ : Pipe State)
-      → (∀ (state : State) (fuel : ℕ) → runPipe pipe₁ state fuel ≡ runPipe pipe₂ state fuel)
+    Pipeline-≡ : ∀ {State : Set} (pipe₁ : Pipeline State) (pipe₂ : Pipeline State)
+      → (∀ (state : State) (fuel : ℕ) → runPipeline pipe₁ state fuel ≡ runPipeline pipe₂ state fuel)
       → pipe₁ ≡ pipe₂
 
   associative : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State)
     → prod |> (trans |> con) ≡ (prod |> trans) |> con
-  associative prod trans con = Pipe-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (associative′ prod trans con)
+  associative prod trans con = Pipeline-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (associative′ prod trans con)
     where
     associative′ : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State) (state : State) (fuel : ℕ)
-      → runPipe (prod |> (trans |> con)) state fuel ≡ runPipe ((prod |> trans) |> con) state fuel
+      → runPipeline (prod |> (trans |> con)) state fuel ≡ runPipeline ((prod |> trans) |> con) state fuel
     associative′ _ _ _ _ zero = refl
     associative′ (producer p) (transformer t) (consumer c) state (suc fuel) with pull (producer p) state
     ... | nothing , pulledState = refl
