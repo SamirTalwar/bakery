@@ -74,13 +74,16 @@ id : ∀ {State : Set} → {T : Set} → Pipe T T State
 id = transformer Function.id
 
 _|>_ : {I T O State : Set} → Pipe I T State → Pipe T O State → Pipe I O State
-prod |> con = record { iterate = iterate prod con }
+up |> down = record { iterate = iterate up down }
   where
   iterate : {I T O State : Set} → Pipe I T State → Pipe T O State → I → State → Result O State
   iterate (record {iterate = iterateUp}) (record {iterate = iterateDown}) input state with iterateUp input state
   ... | result     stop       output pulledState = result stop nothing pulledState
   ... | result continue      nothing pulledState = result stop nothing pulledState
   ... | result continue (just value) pulledState = iterateDown value pulledState
+
+_<|_ : {I T O State : Set} → Pipe T O State → Pipe I T State → Pipe I O State
+down <| up = up |> down
 
 Pipeline : Set → Set₁
 Pipeline = Pipe ⊤ ⊥
