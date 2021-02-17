@@ -4,6 +4,7 @@ open import Data.Maybe
 open import Data.Nat
 open import Data.Product
 open import Data.Sum
+open import Function using (_$_)
 
 infixr 10 _|>_
 
@@ -24,16 +25,14 @@ pull (prod |> (transformer f)) state with pull prod state
 ... | just value , newState = (just (f value)) , newState
 
 data Consumer (T State : Set) : Set₁ where
-  stop : Consumer T State
-  consumer : (T → State → State) → Consumer T State
+  consumer : (T → State → Maybe State) → Consumer T State
   _|>_ : Transformer T → Consumer T State → Consumer T State
 
 push : ∀ {T State : Set}
   → T
   → Consumer T State
   → State
-  → State
-push    _ stop state = state
+  → Maybe State
 push item (consumer apply) state = apply item state
 push item (transformer f |> con) state = push (f item) con state
 
@@ -44,23 +43,25 @@ data OutOfFuel : Set where
   outOfFuel : OutOfFuel
 
 runPipe : {State : Set} → Pipe State → State → ℕ → OutOfFuel ⊎ State
-runPipe      (prod |> stop) state          _ = inj₂ state
 runPipe      (   _ |>    _)     _       zero = inj₁ outOfFuel
 runPipe pipe@(prod |>  con) state (suc fuel) with pull prod state
-... |    nothing , newState = inj₂ newState
-... | just value , newState = runPipe pipe (push value con newState) fuel
+... |    nothing , pulledState = inj₂ pulledState
+... | just value , pulledState with push value con pulledState
+...     | nothing = inj₂ pulledState
+...     | just newState = runPipe pipe newState fuel
 
 module Common where
   nullProducer : ∀ {T State} → Producer T State
-  nullProducer = producer (λ state → nothing , state)
+  nullProducer = producer λ state → nothing , state
 
   nullConsumer : ∀ {T State} → Consumer T State
-  nullConsumer = stop
+  nullConsumer = consumer λ _ _ → nothing
 
   blackHoleConsumer : ∀ {T State} → Consumer T State
-  blackHoleConsumer = consumer λ _ state → state
+  blackHoleConsumer = consumer λ _ state → just state
 
 module examples where
+  open import Data.Empty
   open import Data.List
   open import Function using (_∘_; id)
   import Relation.Binary.PropositionalEquality as Eq
@@ -69,6 +70,9 @@ module examples where
   import Lens
   open Lens using (Lens)
   open Common
+
+  repeatProducer : {T State : Set} → (value : T) → Producer T State
+  repeatProducer value = producer λ state → just value , state
 
   counterProducer : {State : Set} → Lens State ℕ → Producer ℕ State
   counterProducer lens =
@@ -117,14 +121,15 @@ module examples where
   listConsumer : ∀ {T State : Set}
     → Lens State (List T)
     → Consumer T State
-  listConsumer lens = consumer λ item state → Lens.put lens (item ∷ (Lens.get lens state)) state
+  listConsumer lens = consumer λ item state → just $ Lens.put lens (item ∷ (Lens.get lens state)) state
 
   _ : let con = listConsumer Lens.id
-          state₀ = []
-          state₁ = push 1 con state₀
-          state₂ = push 2 con state₁
-          state₃ = push 3 con state₂
-          in state₃ ≡ 3 ∷ 2 ∷ 1 ∷ []
+          state = do
+            state₀ ← just []
+            state₁ ← push 1 con state₀
+            state₂ ← push 2 con state₁
+            push 3 con state₂
+          in state ≡ just (3 ∷ 2 ∷ 1 ∷ [])
   _ = refl
 
   record TwoLists (T : Set) : Set where
@@ -178,10 +183,51 @@ module examples where
   steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
     steadyStateProducerRunsOutOfFuel prod input fuel (value , isInfinite)
 
-  consumerCanStopFlow : ∀ {T State : Set} (prod : Producer T State) (input : State)
-    → ∃[ fuel ] (runPipe (prod |> nullConsumer) input fuel ≡ inj₂ input)
-  consumerCanStopFlow _ _ = zero , refl
+  consumerCanStopFlow : ∀ {T State : Set} (value : T) (input : State)
+    → ∃[ fuel ] (runPipe (repeatProducer value |> nullConsumer) input fuel ≡ inj₂ input)
+  consumerCanStopFlow prod input = 1 , refl
 
   _ : runPipe (listProducer twoListsInput |> transformer (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
       ≡ inj₂ (record { input = [] ; output = 6 ∷ 4 ∷ 2 ∷ [] })
   _ = refl
+
+  postulate
+    Producer-≡ : ∀ {T State : Set} (prod₁ : Producer T State) (prod₂ : Producer T State)
+      → (∀ (state : State) → pull prod₁ state ≡ pull prod₂ state)
+      → prod₁ ≡ prod₂
+
+    Consumer-≡ : ∀ {T State : Set} (con₁ : Consumer T State) (con₂ : Consumer T State) (item : T)
+      → (∀ (state : State) → push item con₁ state ≡ push item con₂ state)
+      → con₁ ≡ con₂
+
+    Pipe-≡ : ∀ {State : Set} (pipe₁ : Pipe State) (pipe₂ : Pipe State)
+      → (∀ (state : State) (fuel : ℕ) → runPipe pipe₁ state fuel ≡ runPipe pipe₂ state fuel)
+      → pipe₁ ≡ pipe₂
+
+  associative : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State)
+    → prod |> (trans |> con) ≡ (prod |> trans) |> con
+  associative prod trans con = Pipe-≡ (prod |> (trans |> con)) ((prod |> trans) |> con) (associative′ prod trans con)
+    where
+    associative′ : ∀ {T State : Set} (prod : Producer T State) (trans : Transformer T) (con : Consumer T State) (state : State) (fuel : ℕ)
+      → runPipe (prod |> (trans |> con)) state fuel ≡ runPipe ((prod |> trans) |> con) state fuel
+    associative′ _ _ _ _ zero = refl
+    associative′ (producer p) (transformer t) (consumer c) state (suc fuel) with pull (producer p) state
+    ... | nothing , pulledState = refl
+    ... | just value , pulledState with push value (transformer t |> consumer c) pulledState
+    ...     | nothing = refl
+    ...     | just newState = associative′ (producer p) (transformer t) (consumer c) newState fuel
+    associative′ (producer p) (transformer t) (c₁ |> c₂) state (suc fuel) with pull (producer p) state
+    ... | nothing , pulledState = refl
+    ... | just value , pulledState with push value (transformer t |> (c₁ |> c₂)) pulledState
+    ... |     nothing = refl
+    ... |     just newState = associative′ (producer p) (transformer t) (c₁ |> c₂) newState fuel
+    associative′   (p₁ |> p₂) (transformer t) (consumer c) state (suc fuel) with pull (p₁ |> p₂) state
+    ... | nothing , pulledState = refl
+    ... | just value , pulledState with push value (transformer t |> consumer c) pulledState
+    ... |     nothing = refl
+    ... |     just newState = associative′ (p₁ |> p₂) (transformer t) (consumer c) newState fuel
+    associative′   (p₁ |> p₂) (transformer t) (c₁ |> c₂) state (suc fuel) with pull (p₁ |> p₂) state
+    ... | nothing , pulledState = refl
+    ... | just value , pulledState with push value (transformer t |> (c₁ |> c₂)) pulledState
+    ... |     nothing = refl
+    ... |     just newState = associative′ (p₁ |> p₂) (transformer t) (c₁ |> c₂) newState fuel
