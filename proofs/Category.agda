@@ -1,8 +1,9 @@
 module Category where
 
+open import Level
 open import Relation.Binary.PropositionalEquality
 
-record Category (Object : Set₁) (_⟶_ : Object → Object → Set₁) : Set₁ where
+record Category {α β} (Object : Set α) (_⟶_ : Object → Object → Set β) : Set (α ⊔ β) where
   field
     _∘_ : {A B C : Object} → B ⟶ C → A ⟶ B → A ⟶ C
     id : {A : Object} → A ⟶ A
