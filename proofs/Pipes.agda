@@ -29,9 +29,6 @@ Consumer I = Pipe I ⊥
 id : ∀ {State : Set} → {T : Set} → Pipe T T State
 id = mkPipe yield
 
-map : ∀ {State : Set} → {A B : Set} → (A → B) → Pipe A B State
-map f = mkPipe λ input state → yield (f input) state
-
 _|>_ : {I T O State : Set} → Pipe I T State → Pipe T O State → Pipe I O State
 up |> down = mkPipe (next′ up down)
   where
@@ -110,20 +107,20 @@ module Reasoning where
     law-assoc = λ h g f → |>-associative f g h
     }
 
-module Common where
-  nullProducer : ∀ {T State} → Producer T State
-  nullProducer = mkPipe λ _ state → stop state
+module Functional where
+  null : ∀ {I O State} → Pipe I O State
+  null = mkPipe λ _ state → stop state
 
-  nullConsumer : ∀ {T State} → Consumer T State
-  nullConsumer = mkPipe λ _ state → stop state
+  blackHole : ∀ {T State} → Consumer T State
+  blackHole = mkPipe λ _ state → demand state
 
-  blackHoleConsumer : ∀ {T State} → Consumer T State
-  blackHoleConsumer = mkPipe λ _ state → demand state
+  map : ∀ {State : Set} → {A B : Set} → (A → B) → Pipe A B State
+  map f = mkPipe λ input state → yield (f input) state
 
   repeatProducer : {T State : Set} → (value : T) → Producer T State
   repeatProducer value = mkPipe λ _ state → yield value state
 
-module examples where
+module Examples where
   open import Data.List using (List; []; _∷_; length; _ʳ++_)
   open import Data.Maybe using (Maybe; just; nothing)
   open import Data.Product using (_×_; _,_; _,′_; ∃-syntax)
@@ -131,7 +128,7 @@ module examples where
   open Relation.Binary.PropositionalEquality.≡-Reasoning
 
   open import Lens using (Lens)
-  open Common
+  open Functional
   open Reasoning
 
   definitelyPull : ∀ {T State : Set}
@@ -249,20 +246,20 @@ module examples where
   reversesLists input@(x ∷ xs) output = reversesLists xs (x ∷ output)
 
   counterRunsOutOfFuel : ∀ (input : ℕ) (fuel : ℕ)
-    → runPipeline (counterProducer Lens.id |> blackHoleConsumer) input fuel ≡ outOfFuel
+    → runPipeline (counterProducer Lens.id |> blackHole) input fuel ≡ outOfFuel
   counterRunsOutOfFuel _ zero = refl
   counterRunsOutOfFuel input (suc fuel) =
     counterRunsOutOfFuel (suc input) fuel
 
   steadyStateProducerRunsOutOfFuel : ∀ {T State : Set} (prod : Producer T State) (input : State) (fuel : ℕ)
     → ∃[ value ] (next prod tt input ≡ yield value input)
-    → runPipeline (prod |> blackHoleConsumer) input fuel ≡ outOfFuel
+    → runPipeline (prod |> blackHole) input fuel ≡ outOfFuel
   steadyStateProducerRunsOutOfFuel _ _ zero _ = refl
   steadyStateProducerRunsOutOfFuel prod input (suc fuel) (value , isInfinite) rewrite isInfinite =
     steadyStateProducerRunsOutOfFuel prod input fuel (value , isInfinite)
 
   consumerCanStopFlow : ∀ {T State : Set} (value : T) (input : State)
-    → ∃[ fuel ] (runPipeline (repeatProducer value |> nullConsumer) input fuel ≡ finalState input)
+    → ∃[ fuel ] (runPipeline (repeatProducer value |> null) input fuel ≡ finalState input)
   consumerCanStopFlow prod input = 1 , refl
 
   _ : runPipeline (listProducer twoListsInput |> map (_* 2) |> listConsumer twoListsOutput) (record { input = 1 ∷ 2 ∷ 3 ∷ [] ; output = [] }) 4
