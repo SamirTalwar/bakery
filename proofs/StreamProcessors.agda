@@ -32,40 +32,26 @@ private id′ : ∀ {i : Size} {A : Set} → A → Pipe A A i
 id = demand (λ x → λ where .force → id′ x)
 id′ x = yield x λ where .force → id
 
-module Examples where
-  open import Data.List as List using (List) renaming ([] to L[]; _∷_ to _L∷_)
-  open import Data.Nat.Properties
-  open import Data.Vec as Vec using (Vec) renaming ([] to V[]; _∷_ to _V∷_)
-  open import Relation.Binary.PropositionalEquality
-  open Relation.Binary.PropositionalEquality.≡-Reasoning
+module Reasoning where
+  open import Codata.Colist.Bisimilarity
+  open Codata.Colist.Bisimilarity.≈-Reasoning
+  open import Data.Nat.Properties using (+-suc)
+  open import Data.Vec as Vec using (Vec; []; _∷_)
+  import Relation.Binary.PropositionalEquality as Eq
 
-  forceList : {A : Set} → Fuel → Stream A → Maybe (List A)
-  forceList _ [] = just L[]
-  forceList zero (_ ∷ _) = nothing
-  forceList (suc fuel) (x ∷ xs♯) with forceList fuel (xs♯ .force)
-  ... | nothing = nothing
-  ... | just xs = just (x L∷ xs)
-
-  forceVec : {A : Set} → (size : ℕ) → Stream A → Maybe (Vec A size)
-  forceVec zero [] = just V[]
-  forceVec zero (_ ∷ _) = nothing
-  forceVec (suc size) [] = nothing
-  forceVec (suc size) (x ∷ xs♯) = Maybe.map (x V∷_) (forceVec size (xs♯ .force))
-
-  process-id : ∀ {A : Set} (size : ℕ) (xs : Vec A size)
-    → forceVec size (process (size + size) id (Colist.fromList (Vec.toList xs))) ≡ just xs
-  process-id zero V[] = refl
-  process-id (suc size) (x V∷ xs) =
+  process-id : ∀ {A : Set} {i : Size} (size : ℕ) (xs : Vec A size)
+    → let xs-stream = Colist.fromList (Vec.toList xs)
+      in i ⊢ process (size + size) id xs-stream ≈ xs-stream
+  process-id 0 [] = []
+  process-id (suc size) (x ∷ xs) =
     begin
-      forceVec (suc size) (process (suc size + suc size) id (Colist.fromList (Vec.toList (x V∷ xs))))
-    ≡⟨⟩
-      forceVec (suc size) (process (size + suc size) (id′ x) (Colist.fromList (Vec.toList xs)))
-    ≡⟨ cong (λ s → forceVec (suc size) (process s (id′ x) (Colist.fromList (Vec.toList xs)))) (+-suc size size) ⟩
-      forceVec (suc size) (process (suc (size + size)) (id′ x) (Colist.fromList (Vec.toList xs)))
-    ≡⟨⟩
-      forceVec (suc size) (x ∷ λ where .force → process (size + size) id (Colist.fromList (Vec.toList xs)))
-    ≡⟨⟩
-      Maybe.map (x V∷_) (forceVec size (process (size + size) id (Colist.fromList (Vec.toList xs))))
-    ≡⟨ cong (Maybe.map (x V∷_)) (process-id size xs) ⟩
-      just (x V∷ xs)
+      process (suc size + suc size) id (Colist.fromList (Vec.toList (x ∷ xs)))
+    ≈⟨ refl ⟩
+      process (size + suc size) (id′ x) (Colist.fromList (Vec.toList xs))
+    ≈⟨ fromEq (Eq.cong (λ n → process n (id′ x) (Colist.fromList (Vec.toList xs))) (+-suc size size)) ⟩
+      process (suc (size + size)) (id′ x) (Colist.fromList (Vec.toList xs))
+    ≈⟨ Eq.refl ∷ (λ where .force → refl) ⟩
+      (x ∷ λ where .force → process (size + size) id (Colist.fromList (Vec.toList xs)))
+    ≈⟨ Eq.refl ∷ (λ where .force → process-id size xs) ⟩
+      Colist.fromList (Vec.toList (x ∷ xs))
     ∎
