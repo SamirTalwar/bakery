@@ -14,6 +14,7 @@ data Pipe (A B : Set) (i : Size) : Set where
   stop : Pipe A B i
   yield : (value : B) → (next : Thunk (Pipe A B) i) → Pipe A B i
   demand : (f : A → Thunk (Pipe A B) i) → Pipe A B i
+  lazy : Thunk (Pipe A B) i → Pipe A B i
 
 Fuel : Set
 Fuel = ℕ
@@ -26,11 +27,31 @@ process (suc fuel) (yield value next) xs =
 process (suc _) (demand f) [] = []
 process (suc fuel) (demand f) (x ∷ xs) =
   process fuel (f x .force) (xs .force)
+process (suc fuel) (lazy pipe) xs =
+  process fuel (pipe .force) xs
 
 id : ∀ {i : Size} {A : Set} → Pipe A A i
 private id′ : ∀ {i : Size} {A : Set} → A → Pipe A A i
 id = demand (λ x → λ where .force → id′ x)
 id′ x = yield x λ where .force → id
+
+_|>_ : ∀  {i : Size} → {A B C : Set} → Pipe A B i → Pipe B C i → Pipe A C i
+_ |> stop = stop
+up@stop |> yield value next = yield value (λ where .force → up |> next .force)
+up@(yield _ _) |> yield value next = yield value (λ where .force → up |> next .force)
+up@(demand _) |> yield value next = yield value (λ where .force → up |> next .force)
+up@(lazy _) |> yield value next = yield value (λ where .force → up |> next .force)
+stop |> demand f = stop
+yield value next |> demand f = lazy λ where .force → next .force |> f value .force
+demand f |> down@(demand _) = demand (λ x → λ where .force → f x .force |> down)
+lazy up |> down@(demand _) = lazy λ where .force → up .force |> down
+up@stop |> lazy down = lazy λ where .force → up |> down .force
+up@(yield _ _) |> lazy down = lazy λ where .force → up |> down .force
+demand f |> lazy down = demand (λ x → λ where .force → f x .force |> down .force)
+lazy up |> lazy down = lazy λ where .force → up .force |> down .force
+
+_<|_ : ∀ {i : Size} {A B C : Set} → Pipe B C i → Pipe A B i → Pipe A C i
+down <| up = up |> down
 
 module Reasoning where
   open import Codata.Colist.Bisimilarity
