@@ -17,7 +17,7 @@ data Pipe (A B : Set) (i : Size) : Set where
   stop : Pipe A B i
   yield : (value : B) → (next : Thunk (Pipe A B) i) → Pipe A B i
   demand : (f : A → Thunk (Pipe A B) i) → Pipe A B i
-  lazy : Thunk (Pipe A B) i → Pipe A B i
+  lazy : (next : Thunk (Pipe A B) i) → Pipe A B i
 
 Fuel : Set
 Fuel = ℕ
@@ -30,8 +30,8 @@ process (suc fuel) (yield value next) xs =
 process (suc _) (demand f) [] = []
 process (suc fuel) (demand f) (x ∷ xs) =
   process fuel (f x .force) (xs .force)
-process (suc fuel) (lazy pipe) xs =
-  process fuel (pipe .force) xs
+process (suc fuel) (lazy next) xs =
+  process fuel (next .force) xs
 
 id : ∀ {i : Size} {A : Set} → Pipe A A i
 private id′ : ∀ {i : Size} {A : Set} → A → Pipe A A i
@@ -40,18 +40,12 @@ id′ x = yield x λ where .force → id
 
 _|>_ : ∀  {i : Size} → {A B C : Set} → Pipe A B i → Pipe B C i → Pipe A C i
 _ |> stop = stop
-up@stop |> yield value next = yield value (λ where .force → up |> next .force)
-up@(yield _ _) |> yield value next = yield value (λ where .force → up |> next .force)
-up@(demand _) |> yield value next = yield value (λ where .force → up |> next .force)
-up@(lazy _) |> yield value next = yield value (λ where .force → up |> next .force)
+up |> yield value next = yield value (λ where .force → up |> next .force)
 stop |> demand f = stop
 yield value next |> demand f = lazy λ where .force → next .force |> f value .force
 demand f |> down@(demand _) = demand (λ x → λ where .force → f x .force |> down)
 lazy up |> down@(demand _) = lazy λ where .force → up .force |> down
-up@stop |> lazy down = lazy λ where .force → up |> down .force
-up@(yield _ _) |> lazy down = lazy λ where .force → up |> down .force
-demand f |> lazy down = demand (λ x → λ where .force → f x .force |> down .force)
-lazy up |> lazy down = lazy λ where .force → up .force |> down .force
+up |> lazy down = lazy λ where .force → up |> down .force
 
 _<|_ : ∀ {i : Size} {A B C : Set} → Pipe B C i → Pipe A B i → Pipe A C i
 down <| up = up |> down
@@ -83,11 +77,56 @@ module Relation where
     lazy₂ : ∀ {a b}
       → Thunk.Thunk^R (Bisim R) i (λ where .force → a) b
       → Bisim R i a (lazy b)
+    lazy : ∀ {a b}
+      → Thunk.Thunk^R (Bisim R) i a b
+      → Bisim R i (lazy a) (lazy b)
 
   module _ {A B : Set} where
     infix 1 _⊢_≈_
     _⊢_≈_ : ∀ (i : Size) → Pipe A B ∞ → Pipe A B ∞ → Set
     _⊢_≈_ = Bisim Eq._≡_
+
+module Reasoning where
+  import Relation.Binary.PropositionalEquality as Eq
+
+  open import Category
+  open Relation
+
+  idˡ : ∀ {i : Size} {A B : Set} (pipe : Pipe A B ∞)
+    → i ⊢ pipe |> id ≈ pipe
+  idˡ stop = stop
+  idˡ (yield value next) = lazy₁ λ where .force → yield Eq.refl λ where .force → idˡ (next .force)
+  idˡ (demand f) = demand λ x → λ where .force → idˡ (f x .force)
+  idˡ (lazy next) = lazy λ where .force → idˡ (next .force)
+
+  idʳ : ∀ {i : Size} {A B : Set} (pipe : Pipe A B ∞)
+    → i ⊢ id |> pipe ≈ pipe
+  idʳ stop = stop
+  idʳ (yield value next) = yield Eq.refl λ where .force → idʳ (next .force)
+  idʳ (demand f) = demand λ x → λ where .force → lazy₁ λ where .force → idʳ (f x .force)
+  idʳ (lazy next) = lazy λ where .force → idʳ (next .force)
+
+  assoc : ∀ {i : Size} {A B C D : Set} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
+    → i ⊢ (f |> g) |> h ≈ f |> (g |> h)
+  assoc _ _ stop = stop
+  assoc _ stop (demand _) = stop
+  assoc stop (demand _) (demand _) = stop
+  assoc f g (yield value next) = yield Eq.refl λ where .force → assoc f g (next .force)
+  assoc f (yield value next) (demand h) = lazy λ where .force → assoc f (next .force) (h value .force)
+  assoc (yield value next) (demand g) h@(demand _) = lazy λ where .force → assoc (next .force) (g value .force) h
+  assoc (demand f) g@(demand _) h@(demand _) = demand λ x → λ where .force → assoc (f x .force) g h
+  assoc (lazy next) g@(demand _) h@(demand _) = lazy λ where .force → assoc (next .force) g h
+  assoc f (lazy next) h@(demand _) = lazy λ where .force → assoc f (next .force) h
+  assoc f g (lazy next) = lazy λ where .force → assoc f g (next .force)
+
+  pipes-are-categories : ∀ {i : Size} → Category Set (λ A B → Pipe A B ∞) (i ⊢_≈_)
+  pipes-are-categories = record {
+    _∘_ = _<|_ ;
+    id = id ;
+    law-idˡ = idˡ ;
+    law-idʳ = idʳ ;
+    law-assoc = λ h g f → assoc f g h
+    }
 
 module Functional where
   open import Data.Bool

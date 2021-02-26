@@ -3,9 +3,9 @@ module Category where
 open import Level
 
 record Category {α β}
-    (_EQ_ : {A : Set β} → A → A → Set β)
     (Object : Set α)
     (_⟶_ : Object → Object → Set β)
+    (_EQ_ : {A B : Object} → (A ⟶ B) → (A ⟶ B) → Set β)
   : Set (α ⊔ β) where
   field
     _∘_ : {A B C : Object} → B ⟶ C → A ⟶ B → A ⟶ C

@@ -98,7 +98,7 @@ module Reasoning where
     ... | demand _ = refl
     ... | yield _ _ = refl
 
-  pipes-are-categories : ∀ {State : Set} → Category (_≡_) Set (λ I O → Pipe I O State)
+  pipes-are-categories : ∀ {State : Set} → Category Set (λ I O → Pipe I O State) (_≡_)
   pipes-are-categories = record {
     _∘_ = λ g f → f |> g ;
     id = id ;
