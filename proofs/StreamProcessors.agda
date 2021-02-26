@@ -8,7 +8,7 @@ open import Data.Product as Product using (_×_; _,_; ∃-syntax)
 open import Size
 
 infixl 10 _|>_
-infixl 10 _<|_
+infixr 10 _<|_
 
 Stream : (A : Set) → Set
 Stream A = Colist A ∞
@@ -106,18 +106,22 @@ module Reasoning where
   idʳ (demand f) = demand λ x → λ where .force → lazy₁ λ where .force → idʳ (f x .force)
   idʳ (lazy next) = lazy λ where .force → idʳ (next .force)
 
-  assoc : ∀ {i : Size} {A B C D : Set} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
+  |>-assoc : ∀ {i : Size} {A B C D : Set} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
     → i ⊢ (f |> g) |> h ≈ f |> (g |> h)
-  assoc _ _ stop = stop
-  assoc _ stop (demand _) = stop
-  assoc stop (demand _) (demand _) = stop
-  assoc f g (yield value next) = yield Eq.refl λ where .force → assoc f g (next .force)
-  assoc f (yield value next) (demand h) = lazy λ where .force → assoc f (next .force) (h value .force)
-  assoc (yield value next) (demand g) h@(demand _) = lazy λ where .force → assoc (next .force) (g value .force) h
-  assoc (demand f) g@(demand _) h@(demand _) = demand λ x → λ where .force → assoc (f x .force) g h
-  assoc (lazy next) g@(demand _) h@(demand _) = lazy λ where .force → assoc (next .force) g h
-  assoc f (lazy next) h@(demand _) = lazy λ where .force → assoc f (next .force) h
-  assoc f g (lazy next) = lazy λ where .force → assoc f g (next .force)
+  |>-assoc _ _ stop = stop
+  |>-assoc _ stop (demand _) = stop
+  |>-assoc stop (demand _) (demand _) = stop
+  |>-assoc f g (yield value next) = yield Eq.refl λ where .force → |>-assoc f g (next .force)
+  |>-assoc f (yield value next) (demand h) = lazy λ where .force → |>-assoc f (next .force) (h value .force)
+  |>-assoc (yield value next) (demand g) h@(demand _) = lazy λ where .force → |>-assoc (next .force) (g value .force) h
+  |>-assoc (demand f) g@(demand _) h@(demand _) = demand λ x → λ where .force → |>-assoc (f x .force) g h
+  |>-assoc (lazy next) g@(demand _) h@(demand _) = lazy λ where .force → |>-assoc (next .force) g h
+  |>-assoc f (lazy next) h@(demand _) = lazy λ where .force → |>-assoc f (next .force) h
+  |>-assoc f g (lazy next) = lazy λ where .force → |>-assoc f g (next .force)
+
+  <|-assoc : ∀ {i : Size} {A B C D : Set} (h : Pipe C D ∞) (g : Pipe B C ∞) (f : Pipe A B ∞)
+    → i ⊢ h <| (g <| f) ≈ (h <| g) <| f
+  <|-assoc h g f = |>-assoc f g h
 
   pipes-are-categories : ∀ {i : Size} → Category Set (λ A B → Pipe A B ∞) (i ⊢_≈_)
   pipes-are-categories = record {
@@ -125,7 +129,7 @@ module Reasoning where
     id = id ;
     law-idˡ = idˡ ;
     law-idʳ = idʳ ;
-    law-assoc = λ h g f → assoc f g h
+    law-assoc = <|-assoc
     }
 
 module Functional where
