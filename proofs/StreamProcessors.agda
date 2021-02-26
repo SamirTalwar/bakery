@@ -35,7 +35,7 @@ process (suc fuel) (lazy next) xs =
 
 id : ∀ {i : Size} {A : Set} → Pipe A A i
 private id′ : ∀ {i : Size} {A : Set} → A → Pipe A A i
-id = demand (λ x → λ where .force → id′ x)
+id = demand λ x → λ where .force → id′ x
 id′ x = yield x λ where .force → id
 
 _|>_ : ∀  {i : Size} → {A B C : Set} → Pipe A B i → Pipe B C i → Pipe A C i
@@ -135,6 +135,12 @@ module Reasoning where
 module Functional where
   open import Data.Bool
 
+  blackHole : ∀ {i : Size} {A B : Set} → Pipe A B i
+  blackHole = demand λ x → λ where .force → blackHole
+
+  repeat : ∀ {i : Size} {A B : Set} → B → Pipe A B i
+  repeat value = yield value λ where .force → repeat value
+
   map : ∀ {i : Size} → {A B : Set} → (A → B) → Pipe A B i
   private map′ : ∀ {i : Size} → {A B : Set} → (A → B) → A → Pipe A B i
   map f = demand λ x → λ where .force → map′ f x
@@ -148,7 +154,7 @@ module Functional where
   ... | true = yield x (λ where .force → filter f)
 
   take : ∀ {i : Size} → {A : Set} → (count : ℕ) → Pipe A A i
-  take′ : ∀ {i : Size} → {A : Set} → (count : ℕ) → A → Pipe A A i
+  private take′ : ∀ {i : Size} → {A : Set} → (count : ℕ) → A → Pipe A A i
   take zero = stop
   take (suc n) = demand λ x → λ where .force → take′ n x
   take′ n x = yield x (λ where .force → take n)
