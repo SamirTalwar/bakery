@@ -57,35 +57,74 @@ module Relation where
   open import Relation.Binary.Reasoning.Setoid
   import Relation.Binary.PropositionalEquality as Eq
 
-  data Bisim {α ρ} {A B : Set α} (R : REL B B ρ) (i : Size) : REL (Pipe A B ∞) (Pipe A B ∞) (α Level.⊔ ρ) where
-    stop : Bisim R i stop stop
-    yield : ∀ {value₁ value₂ next₁ next₂}
-      → R value₁ value₂
-      → Thunk.Thunk^R (Bisim R) i next₁ next₂
-      → Bisim R i (yield value₁ next₁) (yield value₂ next₂)
-    demand₁ : ∀ {f : A → Thunk (Pipe A B) ∞} {b : Pipe A B ∞}
-      → (∀ x → Thunk.Thunk^R (Bisim R) i (f x) (λ where .force → b))
-      → Bisim R i (demand f) b
-    demand₂ : ∀ {a : Pipe A B ∞} {g : A → Thunk (Pipe A B) ∞}
-      → (∀ x → Thunk.Thunk^R (Bisim R) i (λ where .force → a) (g x))
-      → Bisim R i a (demand g)
-    demand : ∀ {f : A → Thunk (Pipe A B) ∞} {g : A → Thunk (Pipe A B) ∞}
-      → (∀ x → Thunk.Thunk^R (Bisim R) i (f x) (g x))
-      → Bisim R i (demand f) (demand g)
-    lazy₁ : ∀ {a b}
-      → Thunk.Thunk^R (Bisim R) i a (λ where .force → b)
-      → Bisim R i (lazy a) b
-    lazy₂ : ∀ {a b}
-      → Thunk.Thunk^R (Bisim R) i (λ where .force → a) b
-      → Bisim R i a (lazy b)
-    lazy : ∀ {a b}
-      → Thunk.Thunk^R (Bisim R) i a b
-      → Bisim R i (lazy a) (lazy b)
+  module _ {α ρ} {A B : Set α} (R : REL B B ρ) (Rsym : Symmetric R) (Rtrans : Transitive R) where
+    data Bisim (i : Size) : REL (Pipe A B ∞) (Pipe A B ∞) (α Level.⊔ ρ) where
+      refl : ∀ {pipe : Pipe A B ∞}
+        → Bisim i pipe pipe
+      thunks : ∀ {a b : Pipe A B ∞}
+        → Thunk.Thunk^R Bisim i (λ where .force → a) (λ where .force → b)
+        → Bisim i a b
+      yield : ∀ {value₁ value₂ next₁ next₂}
+        → R value₁ value₂
+        → Thunk.Thunk^R Bisim i next₁ next₂
+        → Bisim i (yield value₁ next₁) (yield value₂ next₂)
+      demand : ∀ {f : A → Thunk (Pipe A B) ∞} {g : A → Thunk (Pipe A B) ∞}
+        → (∀ x → Thunk.Thunk^R Bisim i (f x) (g x))
+        → Bisim i (demand f) (demand g)
+      lazy₁ : ∀ {a b}
+        → Thunk.Thunk^R Bisim i a (λ where .force → b)
+        → Bisim i (lazy a) b
+      lazy₂ : ∀ {a b}
+        → Thunk.Thunk^R Bisim i (λ where .force → a) b
+        → Bisim i a (lazy b)
+
+    lazyᵇ : ∀ {i : Size} {a b : Thunk (Pipe A B) ∞}
+      → Thunk.Thunk^R Bisim i a b
+      → Bisim i (lazy a) (lazy b)
+    lazyᵇ next = lazy₁ λ where .force → lazy₂ λ where .force → next .force
+
+    sym : ∀ {i : Size} → Symmetric (Bisim i)
+    sym refl = refl
+    sym (thunks rel) = thunks λ where .force → sym (rel .force)
+    sym (yield value next) = yield (Rsym value) λ where .force → sym (next .force)
+    sym (demand f) = demand λ x → λ where .force → sym (f x .force)
+    sym (lazy₁ next) = lazy₂ λ where .force → sym (next .force)
+    sym (lazy₂ next) = lazy₁ λ where .force → sym (next .force)
+
+    trans : ∀ {i : Size} → Transitive (Bisim i)
+    trans refl bc = bc
+    trans (thunks rel) bc = thunks λ where .force → trans (rel .force) bc
+    trans ab@(yield _ _) refl = ab
+    trans ab@(yield _ _) (thunks rel) = thunks λ where .force → trans ab (rel .force)
+    trans (yield value₁ next₁) (yield value₂ next₂) = yield (Rtrans value₁ value₂) λ where .force → trans (next₁ .force) (next₂ .force)
+    trans ab@(yield _ _) (lazy₂ next) = lazy₂ λ where .force → trans ab (next .force)
+    trans (demand f) refl = demand f
+    trans ab@(demand f) (thunks rel) = thunks λ where .force → trans ab (rel .force)
+    trans (demand f) (demand g) = demand λ x → λ where .force → trans (f x .force) (g x .force)
+    trans ab@(demand f) (lazy₂ next) = lazy₂ λ where .force → trans ab (next .force)
+    trans (lazy₁ next) bc = lazy₁ λ where .force → trans (next .force) bc
+    trans (lazy₂ next) refl = lazy₂ next
+    trans ab@(lazy₂ next) (thunks rel) = thunks λ where .force → trans ab (rel .force)
+    trans (lazy₂ next₁) (lazy₁ next₂) = thunks λ where .force → trans (next₁ .force) (next₂ .force)
+    trans (lazy₂ next₁) (lazy₂ next₂) = lazy₂ λ where .force → trans (lazy₂ next₁) (next₂ .force)
 
   module _ {α} {A B : Set α} where
     infix 1 _⊢_≈_
     _⊢_≈_ : ∀ (i : Size) → Pipe A B ∞ → Pipe A B ∞ → Set α
-    _⊢_≈_ = Bisim Eq._≡_
+    _⊢_≈_ = Bisim Eq._≡_ Eq.sym Eq.trans
+
+    ⊢lazy : ∀ {i : Size} {a b : Thunk (Pipe A B) ∞}
+      → Thunk.Thunk^R _⊢_≈_ i a b
+      → i ⊢ lazy a ≈ lazy b
+    ⊢lazy rel = lazyᵇ Eq._≡_ Eq.sym Eq.trans rel
+
+    isEquivalence : ∀ {α} → (i : Size) (A B : Set α) → IsEquivalence (i ⊢_≈_)
+    isEquivalence i A B =
+      record
+        { refl = refl
+        ; sym = sym Eq._≡_ Eq.sym Eq.trans
+        ; trans = trans Eq._≡_ Eq.sym Eq.trans
+        }
 
 module Reasoning where
   import Relation.Binary.PropositionalEquality as Eq
@@ -95,30 +134,30 @@ module Reasoning where
 
   idˡ : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
     → i ⊢ pipe |> id ≈ pipe
-  idˡ stop = stop
+  idˡ stop = refl
   idˡ (yield value next) = lazy₁ λ where .force → yield Eq.refl λ where .force → idˡ (next .force)
   idˡ (demand f) = demand λ x → λ where .force → idˡ (f x .force)
-  idˡ (lazy next) = lazy λ where .force → idˡ (next .force)
+  idˡ (lazy next) = ⊢lazy λ where .force → idˡ (next .force)
 
   idʳ : ∀ {i} {α }{A B : Set α} (pipe : Pipe A B ∞)
     → i ⊢ id |> pipe ≈ pipe
-  idʳ stop = stop
+  idʳ stop = refl
   idʳ (yield value next) = yield Eq.refl λ where .force → idʳ (next .force)
   idʳ (demand f) = demand λ x → λ where .force → lazy₁ λ where .force → idʳ (f x .force)
-  idʳ (lazy next) = lazy λ where .force → idʳ (next .force)
+  idʳ (lazy next) = ⊢lazy λ where .force → idʳ (next .force)
 
   |>-assoc : ∀ {i} {α} {A B C D : Set α} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
     → i ⊢ (f |> g) |> h ≈ f |> (g |> h)
-  |>-assoc _ _ stop = stop
-  |>-assoc _ stop (demand _) = stop
-  |>-assoc stop (demand _) (demand _) = stop
+  |>-assoc _ _ stop = refl
+  |>-assoc _ stop (demand _) = refl
+  |>-assoc stop (demand _) (demand _) = refl
   |>-assoc f g (yield value next) = yield Eq.refl λ where .force → |>-assoc f g (next .force)
-  |>-assoc f (yield value next) (demand h) = lazy λ where .force → |>-assoc f (next .force) (h value .force)
-  |>-assoc (yield value next) (demand g) h@(demand _) = lazy λ where .force → |>-assoc (next .force) (g value .force) h
+  |>-assoc f (yield value next) (demand h) = ⊢lazy λ where .force → |>-assoc f (next .force) (h value .force)
+  |>-assoc (yield value next) (demand g) h@(demand _) = ⊢lazy λ where .force → |>-assoc (next .force) (g value .force) h
   |>-assoc (demand f) g@(demand _) h@(demand _) = demand λ x → λ where .force → |>-assoc (f x .force) g h
-  |>-assoc (lazy next) g@(demand _) h@(demand _) = lazy λ where .force → |>-assoc (next .force) g h
-  |>-assoc f (lazy next) h@(demand _) = lazy λ where .force → |>-assoc f (next .force) h
-  |>-assoc f g (lazy next) = lazy λ where .force → |>-assoc f g (next .force)
+  |>-assoc (lazy next) g@(demand _) h@(demand _) = ⊢lazy λ where .force → |>-assoc (next .force) g h
+  |>-assoc f (lazy next) h@(demand _) = ⊢lazy λ where .force → |>-assoc f (next .force) h
+  |>-assoc f g (lazy next) = ⊢lazy λ where .force → |>-assoc f g (next .force)
 
   <|-assoc : ∀ {i} {α} {A B C D : Set α} (h : Pipe C D ∞) (g : Pipe B C ∞) (f : Pipe A B ∞)
     → i ⊢ h <| (g <| f) ≈ (h <| g) <| f
@@ -183,21 +222,21 @@ module Categorical where
   functor-id : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
     → let _<$>_ = functor .RawFunctor._<$>_ in
       i ⊢ Function.id <$> pipe ≈ pipe
-  functor-id stop = stop
+  functor-id stop = refl
   functor-id (yield value next) = lazy₁ λ where .force → yield Eq.refl λ where .force → functor-id (next .force)
   functor-id (demand f) = demand λ x → λ where .force → functor-id (f x .force)
-  functor-id (lazy next) = lazy λ where .force → functor-id (next .force)
+  functor-id (lazy next) = ⊢lazy λ where .force → functor-id (next .force)
 
   functor-compose : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
     → let _<$>_ = functor .RawFunctor._<$>_ in
       i ⊢ (g ∘ f) <$> pipe ≈ (g <$>_ ∘ f <$>_) pipe
-  functor-compose stop f g = stop
-  functor-compose (yield value next) f g = lazy λ where .force → lazy₂ λ where .force → yield Eq.refl λ where .force → functor-compose (next .force) f g
+  functor-compose stop f g = refl
+  functor-compose (yield value next) f g = ⊢lazy λ where .force → lazy₂ λ where .force → yield Eq.refl λ where .force → functor-compose (next .force) f g
   functor-compose (demand d) f g = demand λ x → λ where .force → functor-compose (d x .force) f g
-  functor-compose (lazy next) f g = lazy λ where .force → functor-compose (next .force) f g
+  functor-compose (lazy next) f g = ⊢lazy λ where .force → functor-compose (next .force) f g
 
 module Examples where
-  open import Codata.Colist.Bisimilarity renaming (_⊢_≈_ to _L⊢_≈_)
+  open import Codata.Colist.Bisimilarity renaming (_⊢_≈_ to _L⊢_≈_; refl to Lrefl)
   open Codata.Colist.Bisimilarity.≈-Reasoning
   open import Data.List using (List; []; _∷_)
   open import Data.Nat.DivMod using (_%_)
@@ -220,11 +259,11 @@ module Examples where
   process-id (suc size) (x ∷ xs) =
     begin
       process (suc size + suc size) id (Colist.fromList (Vec.toList (x ∷ xs)))
-    ≈⟨ refl ⟩
+    ≈⟨ Lrefl ⟩
       process (size + suc size) (id′ x) (Colist.fromList (Vec.toList xs))
     ≈⟨ fromEq (Eq.cong (λ n → process n (id′ x) (Colist.fromList (Vec.toList xs))) (+-suc size size)) ⟩
       process (suc (size + size)) (id′ x) (Colist.fromList (Vec.toList xs))
-    ≈⟨ Eq.refl ∷ (λ where .force → refl) ⟩
+    ≈⟨ Eq.refl ∷ (λ where .force → Lrefl) ⟩
       (x ∷ λ where .force → process (size + size) id (Colist.fromList (Vec.toList xs)))
     ≈⟨ Eq.refl ∷ (λ where .force → process-id size xs) ⟩
       Colist.fromList (Vec.toList (x ∷ xs))
