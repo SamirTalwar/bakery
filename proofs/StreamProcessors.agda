@@ -8,8 +8,9 @@ open import Data.Product as Product using (_×_; _,_; ∃-syntax)
 open import Level using (Level)
 open import Size
 
-infixl 10 _|>_
-infixr 10 _<|_
+infixl 9 _|>_
+infixr 9 _<|_
+infixr 5 _++_
 
 Stream : ∀ {α} → (A : Set α) → Set α
 Stream A = Colist A ∞
@@ -50,6 +51,12 @@ up |> lazy down = lazy λ where .force → up |> down .force
 
 _<|_ : ∀ {i} {α} {A B C : Set α} → Pipe B C i → Pipe A B i → Pipe A C i
 down <| up = up |> down
+
+_++_ : ∀ {i : Size} {α} → {A B : Set α} → Pipe A B i → Pipe A B i → Pipe A B i
+stop ++ b = b
+yield value next ++ b = yield value λ where .force → next .force ++ b
+demand f ++ b = demand λ x → λ where .force → f x .force ++ b
+lazy next ++ b = lazy λ where .force → next .force ++ b
 
 module Relation where
   open import Level
@@ -113,6 +120,63 @@ module Relation where
         ; sym = sym
         ; trans = trans
         }
+
+module Algebra where
+  open import Algebra.Definitions
+  open import Algebra.Structures
+  import Relation.Binary.PropositionalEquality as Eq
+
+  open Relation.PropositionalEquality
+
+  ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
+  ++-cong (≈refl {stop}) b = b
+  ++-cong (≈refl {yield value next}) b = ≈yield Eq.refl λ where .force → ++-cong ≈refl b
+  ++-cong (≈refl {demand f}) b = ≈demand λ x → λ where .force → ++-cong ≈refl b
+  ++-cong (≈refl {lazy next}) b = ≈lazyᵇ λ where .force → ++-cong ≈refl b
+  ++-cong (≈thunks rel) b = ≈thunks λ where .force → ++-cong (rel .force) b
+  ++-cong (≈yield value next) b = ≈yield value λ where .force → ++-cong (next .force) b
+  ++-cong (≈demand onNext) b = ≈demand λ x → λ where .force → ++-cong (onNext x .force) b
+  ++-cong (≈lazyˡ next) b = ≈lazyˡ λ where .force → ++-cong (next .force) b
+  ++-cong (≈lazyʳ next) b = ≈lazyʳ λ where .force → ++-cong (next .force) b
+
+  ++-assoc : ∀ {i} {α} {A B : Set α} → Associative (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
+  ++-assoc stop b c = ≈refl
+  ++-assoc (yield value next) b c = ≈yield Eq.refl λ where .force → ++-assoc (next .force) b c
+  ++-assoc (demand f) b c = ≈demand λ x → λ where .force → ++-assoc (f x .force) b c
+  ++-assoc (lazy next) b c = ≈lazyᵇ λ where .force → ++-assoc (next .force) b c
+
+  ++-identityˡ : ∀ {i} {α} {A B : Set α} → LeftIdentity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identityˡ x = ≈refl
+
+  ++-identityʳ : ∀ {i} {α} {A B : Set α} → RightIdentity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identityʳ stop = ≈refl
+  ++-identityʳ (yield value next) = ≈yield Eq.refl λ where .force → ++-identityʳ (next .force)
+  ++-identityʳ (demand f) = ≈demand λ x → λ where .force → ++-identityʳ (f x .force)
+  ++-identityʳ (lazy next) = ≈lazyᵇ λ where .force → ++-identityʳ (next .force)
+
+  ++-identity : ∀ {i} {α} {A B : Set α} → Identity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identity = ++-identityˡ , ++-identityʳ
+
+  isMagma : ∀ {α} → (i : Size) (A B : Set α) → IsMagma (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
+  isMagma i A B =
+    record
+      { isEquivalence = isEquivalence i A B
+      ; ∙-cong = ++-cong
+      }
+
+  isSemigroup : ∀ {α} → (i : Size) (A B : Set α) → IsSemigroup (i ⊢_≈_) _++_
+  isSemigroup i A B =
+    record
+      { isMagma = isMagma i A B
+      ; assoc = ++-assoc
+      }
+
+  isMonoid : ∀ {α} → (i : Size) (A B : Set α) → IsMonoid (i ⊢_≈_) _++_ stop
+  isMonoid i A B =
+    record
+      { isSemigroup = isSemigroup i A B
+      ; identity = ++-identity
+      }
 
 module Reasoning where
   import Relation.Binary.PropositionalEquality as Eq
