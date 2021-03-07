@@ -179,24 +179,33 @@ module Algebra where
       }
 
 module Reasoning where
+  open import Algebra.Definitions
   import Relation.Binary.PropositionalEquality as Eq
 
   open import Category
   open Relation.PropositionalEquality
 
-  idˡ : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
-    → i ⊢ pipe |> id ≈ pipe
-  idˡ stop = ≈refl
-  idˡ (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → idˡ (next .force)
-  idˡ (demand onNext) = ≈demand λ x → λ where .force → idˡ (onNext x .force)
-  idˡ (lazy next) = ≈lazyᵇ λ where .force → idˡ (next .force)
-
-  idʳ : ∀ {i} {α }{A B : Set α} (pipe : Pipe A B ∞)
+  |>-identityˡ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
     → i ⊢ id |> pipe ≈ pipe
-  idʳ stop = ≈refl
-  idʳ (yield value next) = ≈yield Eq.refl λ where .force → idʳ (next .force)
-  idʳ (demand onNext) = ≈demand λ x → λ where .force → ≈lazyˡ λ where .force → idʳ (onNext x .force)
-  idʳ (lazy next) = ≈lazyᵇ λ where .force → idʳ (next .force)
+  |>-identityˡ stop = ≈refl
+  |>-identityˡ (yield value next) = ≈yield Eq.refl λ where .force → |>-identityˡ (next .force)
+  |>-identityˡ (demand onNext) = ≈demand λ x → λ where .force → ≈lazyˡ λ where .force → |>-identityˡ (onNext x .force)
+  |>-identityˡ (lazy next) = ≈lazyᵇ λ where .force → |>-identityˡ (next .force)
+
+  |>-identityʳ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
+    → i ⊢ pipe |> id ≈ pipe
+  |>-identityʳ stop = ≈refl
+  |>-identityʳ (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → |>-identityʳ (next .force)
+  |>-identityʳ (demand onNext) = ≈demand λ x → λ where .force → |>-identityʳ (onNext x .force)
+  |>-identityʳ (lazy next) = ≈lazyᵇ λ where .force → |>-identityʳ (next .force)
+
+  <|-identityˡ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
+    → i ⊢ id <| pipe ≈ pipe
+  <|-identityˡ pipe = |>-identityʳ pipe
+
+  <|-identityʳ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
+    → i ⊢ pipe <| id ≈ pipe
+  <|-identityʳ pipe = |>-identityˡ pipe
 
   |>-assoc : ∀ {i} {α} {A B C D : Set α} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
     → i ⊢ (f |> g) |> h ≈ f |> (g |> h)
@@ -215,14 +224,15 @@ module Reasoning where
     → i ⊢ h <| (g <| f) ≈ (h <| g) <| f
   <|-assoc h g f = |>-assoc f g h
 
-  pipes-are-categories : ∀ {i} {α} → Category (Set α) (λ A B → Pipe A B ∞) (i ⊢_≈_)
-  pipes-are-categories = record {
-    _∘_ = _<|_ ;
-    id = id ;
-    law-idˡ = idˡ ;
-    law-idʳ = idʳ ;
-    law-assoc = <|-assoc
-    }
+  pipes-form-a-category : ∀ {i} {α} → Category (Set α) (λ A B → Pipe A B ∞) (i ⊢_≈_)
+  pipes-form-a-category =
+    record
+      { _∘_ = _<|_
+      ; id = id
+      ; law-idˡ = <|-identityˡ
+      ; law-idʳ = <|-identityʳ
+      ; law-assoc = <|-assoc
+      }
 
 module Functional where
   open import Data.Bool
