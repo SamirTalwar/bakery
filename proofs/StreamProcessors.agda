@@ -62,35 +62,35 @@ module Relation where
   open import Level
   open import Relation.Binary
 
-  module Generic {α ρ} {A B : Set α} (R : REL B B ρ) (R-isEquivalence : IsEquivalence R) where
+  module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : Set α} → IsEquivalence (R {T})) where
     infix 1 _⊢_≈_
 
-    data _⊢_≈_ (i : Size) : REL (Pipe A B ∞) (Pipe A B ∞) (α Level.⊔ ρ) where
+    data _⊢_≈_ (i : Size) {A B : Set α} : Rel (Pipe A B ∞) (α Level.⊔ ρ) where
       ≈refl : ∀ {pipe : Pipe A B ∞}
         → i ⊢ pipe ≈ pipe
       ≈thunks : ∀ {a b : Pipe A B ∞}
-        → (rel : Thunk.Thunk^R _⊢_≈_ i (λ where .force → a) (λ where .force → b))
+        → (rel : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) (λ where .force → b))
         → i ⊢ a ≈ b
-      ≈yield : ∀ {value₁ value₂ next₁ next₂}
+      ≈yield : ∀ {value₁ value₂ : B} {next₁ next₂ : Thunk (Pipe A B) ∞}
         → (value : R value₁ value₂)
-        → (next : Thunk.Thunk^R _⊢_≈_ i next₁ next₂)
+        → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i next₁ next₂)
         → i ⊢ yield value₁ next₁ ≈ yield value₂ next₂
       ≈demand : ∀ {f : A → Thunk (Pipe A B) ∞} {g : A → Thunk (Pipe A B) ∞}
-        → (onNext : ∀ x → Thunk.Thunk^R _⊢_≈_ i (f x) (g x))
+        → (onNext : ∀ x → Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (f x) (g x))
         → i ⊢ demand f ≈ demand g
-      ≈lazyˡ : ∀ {a b}
-        → (next : Thunk.Thunk^R _⊢_≈_ i a (λ where .force → b))
+      ≈lazyˡ : ∀ {a : Thunk (Pipe A B) ∞} {b : Pipe A B ∞}
+        → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i a (λ where .force → b))
         → i ⊢ lazy a ≈ b
-      ≈lazyʳ : ∀ {a b}
-        → (next : Thunk.Thunk^R _⊢_≈_ i (λ where .force → a) b)
+      ≈lazyʳ : ∀ {a : Pipe A B ∞} {b : Thunk (Pipe A B) ∞}
+        → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) b)
         → i ⊢ a ≈ lazy b
 
-    ≈lazyᵇ : ∀ {i : Size} {a b : Thunk (Pipe A B) ∞}
-      → (next : Thunk.Thunk^R _⊢_≈_ i a b)
+    ≈lazyᵇ : ∀ {i : Size} {A B : Set α} {a b : Thunk (Pipe A B) ∞}
+      → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i a b)
       → i ⊢ lazy a ≈ lazy b
     ≈lazyᵇ next = ≈lazyˡ λ where .force → ≈lazyʳ λ where .force → next .force
 
-    sym : ∀ {i : Size} → Symmetric (i ⊢_≈_)
+    sym : ∀ {i : Size} {A B : Set α} → Symmetric (_⊢_≈_ i {A} {B})
     sym ≈refl = ≈refl
     sym (≈thunks rel) = ≈thunks λ where .force → sym (rel .force)
     sym (≈yield value next) = ≈yield (R-isEquivalence .IsEquivalence.sym value) λ where .force → sym (next .force)
@@ -98,7 +98,7 @@ module Relation where
     sym (≈lazyˡ next) = ≈lazyʳ λ where .force → sym (next .force)
     sym (≈lazyʳ next) = ≈lazyˡ λ where .force → sym (next .force)
 
-    trans : ∀ {i : Size} → Transitive (i ⊢_≈_)
+    trans : ∀ {i : Size} {A B : Set α} → Transitive (_⊢_≈_ i {A} {B})
     trans ≈refl bc = bc
     trans (≈thunks rel) bc = ≈thunks λ where .force → trans (rel .force) bc
     trans (≈lazyˡ next) bc = ≈lazyˡ λ where .force → trans (next .force) bc
@@ -109,12 +109,12 @@ module Relation where
     trans (≈demand onNext) (≈demand g) = ≈demand λ x → λ where .force → trans (onNext x .force) (g x .force)
     trans (≈lazyʳ next₁) (≈lazyˡ next₂) = ≈thunks λ where .force → trans (next₁ .force) (next₂ .force)
 
-  module PropositionalEquality {α} {A B : Set α} where
+  module PropositionalEquality {α} where
     import Relation.Binary.PropositionalEquality as Eq
-    open Generic {α} {α} {A} {B} Eq._≡_ Eq.isEquivalence public
+    open Generic {α} {α} Eq._≡_ Eq.isEquivalence public
 
-    isEquivalence : ∀ {α} → (i : Size) (A B : Set α) → IsEquivalence (i ⊢_≈_)
-    isEquivalence i A B =
+    isEquivalence : ∀ {i : Size} {A B : Set α} → IsEquivalence (_⊢_≈_ i {A} {B})
+    isEquivalence =
       record
         { refl = ≈refl
         ; sym = sym
@@ -128,53 +128,53 @@ module Algebra where
 
   open Relation.PropositionalEquality
 
-  ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
-  ++-cong (≈refl {stop}) b = b
-  ++-cong (≈refl {yield value next}) b = ≈yield Eq.refl λ where .force → ++-cong ≈refl b
-  ++-cong (≈refl {demand f}) b = ≈demand λ x → λ where .force → ++-cong ≈refl b
-  ++-cong (≈refl {lazy next}) b = ≈lazyᵇ λ where .force → ++-cong ≈refl b
+  ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (_⊢_≈_ i {A} {B}) _++_
+  ++-cong (≈refl {pipe = stop}) b = b
+  ++-cong (≈refl {pipe = yield value next}) b = ≈yield Eq.refl λ where .force → ++-cong ≈refl b
+  ++-cong (≈refl {pipe = demand f}) b = ≈demand λ x → λ where .force → ++-cong ≈refl b
+  ++-cong (≈refl {pipe = lazy next}) b = ≈lazyᵇ λ where .force → ++-cong ≈refl b
   ++-cong (≈thunks rel) b = ≈thunks λ where .force → ++-cong (rel .force) b
   ++-cong (≈yield value next) b = ≈yield value λ where .force → ++-cong (next .force) b
   ++-cong (≈demand onNext) b = ≈demand λ x → λ where .force → ++-cong (onNext x .force) b
   ++-cong (≈lazyˡ next) b = ≈lazyˡ λ where .force → ++-cong (next .force) b
   ++-cong (≈lazyʳ next) b = ≈lazyʳ λ where .force → ++-cong (next .force) b
 
-  ++-assoc : ∀ {i} {α} {A B : Set α} → Associative (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
+  ++-assoc : ∀ {i} {α} {A B : Set α} → Associative (_⊢_≈_ i {A} {B}) _++_
   ++-assoc stop b c = ≈refl
   ++-assoc (yield value next) b c = ≈yield Eq.refl λ where .force → ++-assoc (next .force) b c
   ++-assoc (demand f) b c = ≈demand λ x → λ where .force → ++-assoc (f x .force) b c
   ++-assoc (lazy next) b c = ≈lazyᵇ λ where .force → ++-assoc (next .force) b c
 
-  ++-identityˡ : ∀ {i} {α} {A B : Set α} → LeftIdentity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identityˡ : ∀ {i} {α} {A B : Set α} → LeftIdentity (_⊢_≈_ i {A} {B}) stop _++_
   ++-identityˡ x = ≈refl
 
-  ++-identityʳ : ∀ {i} {α} {A B : Set α} → RightIdentity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identityʳ : ∀ {i} {α} {A B : Set α} → RightIdentity (_⊢_≈_ i {A} {B}) stop _++_
   ++-identityʳ stop = ≈refl
   ++-identityʳ (yield value next) = ≈yield Eq.refl λ where .force → ++-identityʳ (next .force)
   ++-identityʳ (demand f) = ≈demand λ x → λ where .force → ++-identityʳ (f x .force)
   ++-identityʳ (lazy next) = ≈lazyᵇ λ where .force → ++-identityʳ (next .force)
 
-  ++-identity : ∀ {i} {α} {A B : Set α} → Identity (i ⊢_≈_) stop (_++_ {∞} {α} {A} {B})
+  ++-identity : ∀ {i} {α} {A B : Set α} → Identity (_⊢_≈_ i {A} {B}) stop _++_
   ++-identity = ++-identityˡ , ++-identityʳ
 
-  isMagma : ∀ {α} → (i : Size) (A B : Set α) → IsMagma (i ⊢_≈_) (_++_ {∞} {α} {A} {B})
-  isMagma i A B =
+  isMagma : ∀ {α} {i : Size} {A B : Set α} → IsMagma (_⊢_≈_ i {A} {B}) _++_
+  isMagma =
     record
-      { isEquivalence = isEquivalence i A B
+      { isEquivalence = isEquivalence
       ; ∙-cong = ++-cong
       }
 
-  isSemigroup : ∀ {α} → (i : Size) (A B : Set α) → IsSemigroup (i ⊢_≈_) _++_
-  isSemigroup i A B =
+  isSemigroup : ∀ {α} {i : Size} {A B : Set α} → IsSemigroup (_⊢_≈_ i {A} {B}) _++_
+  isSemigroup =
     record
-      { isMagma = isMagma i A B
+      { isMagma = isMagma
       ; assoc = ++-assoc
       }
 
-  isMonoid : ∀ {α} → (i : Size) (A B : Set α) → IsMonoid (i ⊢_≈_) _++_ stop
-  isMonoid i A B =
+  isMonoid : ∀ {α} {i : Size} {A B : Set α} → IsMonoid (_⊢_≈_ i {A} {B}) _++_ stop
+  isMonoid =
     record
-      { isSemigroup = isSemigroup i A B
+      { isSemigroup = isSemigroup
       ; identity = ++-identity
       }
 
