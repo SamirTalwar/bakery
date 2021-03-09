@@ -62,7 +62,7 @@ module Relation where
   open import Level
   open import Relation.Binary
 
-  module Generic {α ρ} {A B : Set α} (R : REL B B ρ) (Rsym : Symmetric R) (Rtrans : Transitive R) where
+  module Generic {α ρ} {A B : Set α} (R : REL B B ρ) (R-isEquivalence : IsEquivalence R) where
     infix 1 _⊢_≈_
 
     data _⊢_≈_ (i : Size) : REL (Pipe A B ∞) (Pipe A B ∞) (α Level.⊔ ρ) where
@@ -93,7 +93,7 @@ module Relation where
     sym : ∀ {i : Size} → Symmetric (i ⊢_≈_)
     sym ≈refl = ≈refl
     sym (≈thunks rel) = ≈thunks λ where .force → sym (rel .force)
-    sym (≈yield value next) = ≈yield (Rsym value) λ where .force → sym (next .force)
+    sym (≈yield value next) = ≈yield (R-isEquivalence .IsEquivalence.sym value) λ where .force → sym (next .force)
     sym (≈demand onNext) = ≈demand λ x → λ where .force → sym (onNext x .force)
     sym (≈lazyˡ next) = ≈lazyʳ λ where .force → sym (next .force)
     sym (≈lazyʳ next) = ≈lazyˡ λ where .force → sym (next .force)
@@ -105,13 +105,13 @@ module Relation where
     trans ab ≈refl = ab
     trans ab (≈thunks rel) = ≈thunks λ where .force → trans ab (rel .force)
     trans ab (≈lazyʳ next) = ≈lazyʳ λ where .force → trans ab (next .force)
-    trans (≈yield value₁ next₁) (≈yield value₂ next₂) = ≈yield (Rtrans value₁ value₂) λ where .force → trans (next₁ .force) (next₂ .force)
+    trans (≈yield value₁ next₁) (≈yield value₂ next₂) = ≈yield (R-isEquivalence .IsEquivalence.trans value₁ value₂) λ where .force → trans (next₁ .force) (next₂ .force)
     trans (≈demand onNext) (≈demand g) = ≈demand λ x → λ where .force → trans (onNext x .force) (g x .force)
     trans (≈lazyʳ next₁) (≈lazyˡ next₂) = ≈thunks λ where .force → trans (next₁ .force) (next₂ .force)
 
   module PropositionalEquality {α} {A B : Set α} where
     import Relation.Binary.PropositionalEquality as Eq
-    open Generic {α} {α} {A} {B} Eq._≡_ Eq.sym Eq.trans public
+    open Generic {α} {α} {A} {B} Eq._≡_ Eq.isEquivalence public
 
     isEquivalence : ∀ {α} → (i : Size) (A B : Set α) → IsEquivalence (i ⊢_≈_)
     isEquivalence i A B =
