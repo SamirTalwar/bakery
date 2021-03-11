@@ -66,8 +66,8 @@ module Relation where
     infix 1 _⊢_≈_
 
     data _⊢_≈_ (i : Size) {A B : Set α} : Rel (Pipe A B ∞) (α Level.⊔ ρ) where
-      ≈refl : ∀ {pipe : Pipe A B ∞}
-        → i ⊢ pipe ≈ pipe
+      ≈stop :
+          i ⊢ stop ≈ stop
       ≈thunks : ∀ {a b : Pipe A B ∞}
         → (rel : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) (λ where .force → b))
         → i ⊢ a ≈ b
@@ -90,8 +90,14 @@ module Relation where
       → i ⊢ lazy a ≈ lazy b
     ≈lazyᵇ next = ≈lazyˡ λ where .force → ≈lazyʳ λ where .force → next .force
 
+    refl : ∀ {i : Size} {A B : Set α} → Reflexive (_⊢_≈_ i {A} {B})
+    refl {x = stop} = ≈stop
+    refl {x = yield value next} = ≈yield (R-isEquivalence .IsEquivalence.refl) λ where .force → refl
+    refl {x = demand f} = ≈demand λ _ → λ where .force → refl
+    refl {x = lazy next} = ≈lazyᵇ λ where .force → refl
+
     sym : ∀ {i : Size} {A B : Set α} → Symmetric (_⊢_≈_ i {A} {B})
-    sym ≈refl = ≈refl
+    sym ≈stop = ≈stop
     sym (≈thunks rel) = ≈thunks λ where .force → sym (rel .force)
     sym (≈yield value next) = ≈yield (R-isEquivalence .IsEquivalence.sym value) λ where .force → sym (next .force)
     sym (≈demand onNext) = ≈demand λ x → λ where .force → sym (onNext x .force)
@@ -99,10 +105,9 @@ module Relation where
     sym (≈lazyʳ next) = ≈lazyˡ λ where .force → sym (next .force)
 
     trans : ∀ {i : Size} {A B : Set α} → Transitive (_⊢_≈_ i {A} {B})
-    trans ≈refl bc = bc
+    trans ≈stop bc = bc
     trans (≈thunks rel) bc = ≈thunks λ where .force → trans (rel .force) bc
     trans (≈lazyˡ next) bc = ≈lazyˡ λ where .force → trans (next .force) bc
-    trans ab ≈refl = ab
     trans ab (≈thunks rel) = ≈thunks λ where .force → trans ab (rel .force)
     trans ab (≈lazyʳ next) = ≈lazyʳ λ where .force → trans ab (next .force)
     trans (≈yield value₁ next₁) (≈yield value₂ next₂) = ≈yield (R-isEquivalence .IsEquivalence.trans value₁ value₂) λ where .force → trans (next₁ .force) (next₂ .force)
@@ -116,7 +121,7 @@ module Relation where
     isEquivalence : ∀ {i : Size} {A B : Set α} → IsEquivalence (_⊢_≈_ i {A} {B})
     isEquivalence =
       record
-        { refl = ≈refl
+        { refl = refl
         ; sym = sym
         ; trans = trans
         }
@@ -129,10 +134,7 @@ module Algebra where
   open Relation.PropositionalEquality
 
   ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (_⊢_≈_ i {A} {B}) _++_
-  ++-cong (≈refl {pipe = stop}) b = b
-  ++-cong (≈refl {pipe = yield value next}) b = ≈yield Eq.refl λ where .force → ++-cong ≈refl b
-  ++-cong (≈refl {pipe = demand f}) b = ≈demand λ x → λ where .force → ++-cong ≈refl b
-  ++-cong (≈refl {pipe = lazy next}) b = ≈lazyᵇ λ where .force → ++-cong ≈refl b
+  ++-cong ≈stop b = b
   ++-cong (≈thunks rel) b = ≈thunks λ where .force → ++-cong (rel .force) b
   ++-cong (≈yield value next) b = ≈yield value λ where .force → ++-cong (next .force) b
   ++-cong (≈demand onNext) b = ≈demand λ x → λ where .force → ++-cong (onNext x .force) b
@@ -140,16 +142,16 @@ module Algebra where
   ++-cong (≈lazyʳ next) b = ≈lazyʳ λ where .force → ++-cong (next .force) b
 
   ++-assoc : ∀ {i} {α} {A B : Set α} → Associative (_⊢_≈_ i {A} {B}) _++_
-  ++-assoc stop b c = ≈refl
+  ++-assoc stop b c = refl
   ++-assoc (yield value next) b c = ≈yield Eq.refl λ where .force → ++-assoc (next .force) b c
   ++-assoc (demand f) b c = ≈demand λ x → λ where .force → ++-assoc (f x .force) b c
   ++-assoc (lazy next) b c = ≈lazyᵇ λ where .force → ++-assoc (next .force) b c
 
   ++-identityˡ : ∀ {i} {α} {A B : Set α} → LeftIdentity (_⊢_≈_ i {A} {B}) stop _++_
-  ++-identityˡ x = ≈refl
+  ++-identityˡ x = refl
 
   ++-identityʳ : ∀ {i} {α} {A B : Set α} → RightIdentity (_⊢_≈_ i {A} {B}) stop _++_
-  ++-identityʳ stop = ≈refl
+  ++-identityʳ stop = refl
   ++-identityʳ (yield value next) = ≈yield Eq.refl λ where .force → ++-identityʳ (next .force)
   ++-identityʳ (demand f) = ≈demand λ x → λ where .force → ++-identityʳ (f x .force)
   ++-identityʳ (lazy next) = ≈lazyᵇ λ where .force → ++-identityʳ (next .force)
@@ -187,14 +189,14 @@ module Reasoning where
 
   |>-identityˡ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
     → i ⊢ id |> pipe ≈ pipe
-  |>-identityˡ stop = ≈refl
+  |>-identityˡ stop = ≈stop
   |>-identityˡ (yield value next) = ≈yield Eq.refl λ where .force → |>-identityˡ (next .force)
   |>-identityˡ (demand onNext) = ≈demand λ x → λ where .force → ≈lazyˡ λ where .force → |>-identityˡ (onNext x .force)
   |>-identityˡ (lazy next) = ≈lazyᵇ λ where .force → |>-identityˡ (next .force)
 
   |>-identityʳ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
     → i ⊢ pipe |> id ≈ pipe
-  |>-identityʳ stop = ≈refl
+  |>-identityʳ stop = ≈stop
   |>-identityʳ (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → |>-identityʳ (next .force)
   |>-identityʳ (demand onNext) = ≈demand λ x → λ where .force → |>-identityʳ (onNext x .force)
   |>-identityʳ (lazy next) = ≈lazyᵇ λ where .force → |>-identityʳ (next .force)
@@ -209,9 +211,9 @@ module Reasoning where
 
   |>-assoc : ∀ {i} {α} {A B C D : Set α} (f : Pipe A B ∞) (g : Pipe B C ∞) (h : Pipe C D ∞)
     → i ⊢ (f |> g) |> h ≈ f |> (g |> h)
-  |>-assoc _ _ stop = ≈refl
-  |>-assoc _ stop (demand _) = ≈refl
-  |>-assoc stop (demand _) (demand _) = ≈refl
+  |>-assoc _ _ stop = ≈stop
+  |>-assoc _ stop (demand _) = ≈stop
+  |>-assoc stop (demand _) (demand _) = ≈stop
   |>-assoc f g (yield value next) = ≈yield Eq.refl λ where .force → |>-assoc f g (next .force)
   |>-assoc f (yield value next) (demand h) = ≈lazyᵇ λ where .force → |>-assoc f (next .force) (h value .force)
   |>-assoc (yield value next) (demand g) h@(demand _) = ≈lazyᵇ λ where .force → |>-assoc (next .force) (g value .force) h
@@ -284,7 +286,7 @@ module Categorical where
   functor-id : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
     → let _<$>_ = functor .RawFunctor._<$>_ in
       i ⊢ Function.id <$> pipe ≈ pipe
-  functor-id stop = ≈refl
+  functor-id stop = ≈stop
   functor-id (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → functor-id (next .force)
   functor-id (demand f) = ≈demand λ x → λ where .force → functor-id (f x .force)
   functor-id (lazy next) = ≈lazyᵇ λ where .force → functor-id (next .force)
@@ -292,7 +294,7 @@ module Categorical where
   functor-compose : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
     → let _<$>_ = functor .RawFunctor._<$>_ in
       i ⊢ (g ∘ f) <$> pipe ≈ (g <$>_ ∘ f <$>_) pipe
-  functor-compose stop f g = ≈refl
+  functor-compose stop f g = ≈stop
   functor-compose (yield value next) f g = ≈lazyᵇ λ where .force → ≈lazyʳ λ where .force → ≈yield Eq.refl λ where .force → functor-compose (next .force) f g
   functor-compose (demand d) f g = ≈demand λ x → λ where .force → functor-compose (d x .force) f g
   functor-compose (lazy next) f g = ≈lazyᵇ λ where .force → functor-compose (next .force) f g
