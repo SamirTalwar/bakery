@@ -79,9 +79,6 @@ module Relation where
     data _⊢_≈_ (i : Size) {A B : Set α} : Rel (Pipe A B ∞) (α Level.⊔ ρ) where
       ≈stop :
           i ⊢ stop ≈ stop
-      ≈thunks : ∀ {a b : Pipe A B ∞}
-        → (rel : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) (λ where .force → b))
-        → i ⊢ a ≈ b
       ≈yield : ∀ {value₁ value₂ : B} {next₁ next₂ : Thunk (Pipe A B) ∞}
         → (value : R value₁ value₂)
         → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i next₁ next₂)
@@ -95,6 +92,9 @@ module Relation where
       ≈lazyʳ : ∀ {a : Pipe A B ∞} {b : Thunk (Pipe A B) ∞}
         → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) b)
         → i ⊢ a ≈ lazy b
+      ≈thunk : ∀ {a b : Pipe A B ∞}
+        → (relation : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) (λ where .force → b))
+        → i ⊢ a ≈ b
 
     ≈lazyᵇ : ∀ {i : Size} {A B : Set α} {a b : Thunk (Pipe A B) ∞}
       → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i a b)
@@ -109,21 +109,21 @@ module Relation where
 
     sym : ∀ {i : Size} {A B : Set α} → Symmetric (_⊢_≈_ i {A} {B})
     sym ≈stop = ≈stop
-    sym (≈thunks rel) = ≈thunks λ where .force → sym (rel .force)
     sym (≈yield value next) = ≈yield (R-isEquivalence .IsEquivalence.sym value) λ where .force → sym (next .force)
     sym (≈demand onNext) = ≈demand λ value → λ where .force → sym (onNext value .force)
     sym (≈lazyˡ next) = ≈lazyʳ λ where .force → sym (next .force)
     sym (≈lazyʳ next) = ≈lazyˡ λ where .force → sym (next .force)
+    sym (≈thunk relation) = ≈thunk λ where .force → sym (relation .force)
 
     trans : ∀ {i : Size} {A B : Set α} → Transitive (_⊢_≈_ i {A} {B})
     trans ≈stop bc = bc
-    trans (≈thunks rel) bc = ≈thunks λ where .force → trans (rel .force) bc
     trans (≈lazyˡ next) bc = ≈lazyˡ λ where .force → trans (next .force) bc
-    trans ab (≈thunks rel) = ≈thunks λ where .force → trans ab (rel .force)
+    trans (≈thunk relation) bc = ≈thunk λ where .force → trans (relation .force) bc
     trans ab (≈lazyʳ next) = ≈lazyʳ λ where .force → trans ab (next .force)
+    trans ab (≈thunk relation) = ≈thunk λ where .force → trans ab (relation .force)
     trans (≈yield value₁ next₁) (≈yield value₂ next₂) = ≈yield (R-isEquivalence .IsEquivalence.trans value₁ value₂) λ where .force → trans (next₁ .force) (next₂ .force)
     trans (≈demand onNext₁) (≈demand onNext₂) = ≈demand λ value → λ where .force → trans (onNext₁ value .force) (onNext₂ value .force)
-    trans (≈lazyʳ next₁) (≈lazyˡ next₂) = ≈thunks λ where .force → trans (next₁ .force) (next₂ .force)
+    trans (≈lazyʳ next₁) (≈lazyˡ next₂) = ≈thunk λ where .force → trans (next₁ .force) (next₂ .force)
 
     isEquivalence : ∀ {i : Size} {A B : Set α} → IsEquivalence (_⊢_≈_ i {A} {B})
     isEquivalence =
@@ -149,17 +149,17 @@ module Relation where
       → i ⊢ a ≈ c
       → i ⊢ b ≈ d
       → i ⊢ a |> b ≈ c |> d
-    ac ≈|> ≈thunks rel = ≈thunks λ where .force → ac ≈|> rel .force
     ac ≈|> ≈stop = ≈stop
     ac ≈|> ≈yield value next = ≈yield value λ where .force → ac ≈|> next .force
     ≈stop ≈|> ≈demand onNext = ≈stop
-    ≈thunks rel ≈|> ≈demand onNext = ≈thunks λ where .force → rel .force ≈|> ≈demand onNext
     ≈yield {value} Eq.refl next ≈|> ≈demand onNext = ≈lazyᵇ λ where .force → next .force ≈|> onNext value .force
     ≈demand onNext₁ ≈|> ≈demand onNext₂ = ≈demand λ value → λ where .force → onNext₁ value .force ≈|> ≈demand onNext₂
     ≈lazyˡ next ≈|> ≈demand onNext = ≈lazyˡ λ where .force → next .force ≈|> ≈demand onNext
     ≈lazyʳ next ≈|> ≈demand onNext = ≈lazyʳ λ where .force → next .force ≈|> ≈demand onNext
+    ≈thunk relation ≈|> ≈demand onNext = ≈thunk λ where .force → relation .force ≈|> ≈demand onNext
     ac ≈|> ≈lazyˡ next = ≈lazyˡ λ where .force → ac ≈|> next .force
     ac ≈|> ≈lazyʳ next = ≈lazyʳ λ where .force → ac ≈|> next .force
+    ac ≈|> ≈thunk relation = ≈thunk λ where .force → ac ≈|> relation .force
 
 module Algebra where
   open import Algebra.Definitions
@@ -170,11 +170,11 @@ module Algebra where
 
   ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (_⊢_≈_ i {A} {B}) _++_
   ++-cong ≈stop b = b
-  ++-cong (≈thunks rel) b = ≈thunks λ where .force → ++-cong (rel .force) b
   ++-cong (≈yield value next) b = ≈yield value λ where .force → ++-cong (next .force) b
   ++-cong (≈demand onNext) b = ≈demand λ value → λ where .force → ++-cong (onNext value .force) b
   ++-cong (≈lazyˡ next) b = ≈lazyˡ λ where .force → ++-cong (next .force) b
   ++-cong (≈lazyʳ next) b = ≈lazyʳ λ where .force → ++-cong (next .force) b
+  ++-cong (≈thunk relation) b = ≈thunk λ where .force → ++-cong (relation .force) b
 
   ++-assoc : ∀ {i} {α} {A B : Set α} → Associative (_⊢_≈_ i {A} {B}) _++_
   ++-assoc stop b c = refl
@@ -353,11 +353,11 @@ module Categorical where
     → i ⊢ x₁ ≈ x₂
     → i ⊢ x₁ |> map f₁ ≈ x₂ |> map f₂
   ≈map Eq.refl ≈stop = ≈stop
-  ≈map Eq.refl (≈thunks rel) = ≈thunks λ where .force → ≈map Eq.refl (rel .force)
   ≈map {f₁ = f₁} Eq.refl (≈yield value next) = ≈lazyᵇ λ where .force → ≈yield (Eq.cong f₁ value) λ where .force → ≈map Eq.refl (next .force)
   ≈map Eq.refl (≈demand onNext) = ≈demand λ value → λ where .force → ≈map Eq.refl (onNext value .force)
   ≈map Eq.refl (≈lazyˡ next) = ≈lazyˡ λ where .force → ≈map Eq.refl (next .force)
   ≈map Eq.refl (≈lazyʳ next) = ≈lazyʳ λ where .force → ≈map Eq.refl (next .force)
+  ≈map Eq.refl (≈thunk relation) = ≈thunk λ where .force → ≈map Eq.refl (relation .force)
 
   _≈<$>_ : ∀ {i} {α : Level} {A B C : Set α} {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
     → f₁ ≡ f₂
@@ -406,11 +406,11 @@ module Categorical where
     → i ⊢ x₁ ≈ x₂
     → i ⊢ f₁ ⊛ x₁ ≈ f₂ ⊛ x₂
   ≈stop ≈⊛ x = ≈stop
-  ≈thunks rel ≈⊛ x = ≈thunks λ where .force → rel .force ≈⊛ x
   ≈yield value next ≈⊛ x = ++-cong (value ≈<$> x) (≈lazyᵇ λ where .force → next .force ≈⊛ x)
   ≈demand onNext ≈⊛ x = ≈demand λ value → λ where .force → onNext value .force ≈⊛ x
   ≈lazyˡ next ≈⊛ x = ≈lazyˡ λ where .force → next .force ≈⊛ x
   ≈lazyʳ next ≈⊛ x = ≈lazyʳ λ where .force → next .force ≈⊛ x
+  ≈thunk relation ≈⊛ x = ≈thunk λ where .force → relation .force ≈⊛ x
 
   applicative-identity : ∀ {i} {α} {A B : Set α}
     → (x : Pipe A B ∞)
@@ -548,7 +548,7 @@ module Categorical where
       (((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ⊛ x) ++ (((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f) ⊛ x)
     ≈⟨ ++-cong ((refl {x = pure (λ g f x → g (f x)) ⊛ pure value} ≈⊛ refl {x = f}) ≈⊛ refl {x = x}) (≈lazyʳ λ where .force → refl) ⟩
       (((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ⊛ x) ++ lazy (λ where .force → ((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f) ⊛ x)
-    ≈⟨ ++-cong (≈thunks λ where .force → applicative-composition (pure value) f x) (≈lazyᵇ λ where .force → applicative-composition (next .force) f x) ⟩
+    ≈⟨ ++-cong (≈thunk λ where .force → applicative-composition (pure value) f x) (≈lazyᵇ λ where .force → applicative-composition (next .force) f x) ⟩
       (pure value ⊛ (f ⊛ x)) ++ lazy (λ where .force → next .force ⊛ (f ⊛ x))
     ≈⟨ ++-cong (applicative-map value (f ⊛ x)) (≈lazyᵇ λ where .force → refl) ⟩
       (value <$> (f ⊛ x)) ++ lazy (next ♯⊛ (f ⊛ x))
