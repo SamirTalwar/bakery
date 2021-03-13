@@ -1,77 +1,53 @@
 module StreamProcessors where
 
-open import Codata.Colist as Colist using (Colist; []; _∷_)
 open import Codata.Thunk as Thunk using (Thunk; force)
-open import Data.Maybe as Maybe using (Maybe; just; nothing)
-open import Data.Nat
-open import Data.Product as Product using (_×_; _,_; ∃-syntax)
 open import Level using (Level)
 open import Size
 
-infixl 9 _|>_ _♯|>_ _|>♯_ _♯|>♯_
-infixr 9 _<|_
-infixr 5 _++_ _♯++_
+module Core where
+  data Pipe {α : Level} (A B : Set α) (i : Size) : Set α where
+    stop : Pipe A B i
+    yield : (value : B) → (next : Thunk (Pipe A B) i) → Pipe A B i
+    demand : (onNext : (value : A) → Thunk (Pipe A B) i) → Pipe A B i
+    lazy : (next : Thunk (Pipe A B) i) → Pipe A B i
 
-Stream : ∀ {α} → (A : Set α) → Set α
-Stream A = Colist A ∞
+  stop♯ : ∀ {i} {α} {A B : Set α} → Thunk (Pipe A B) i
+  stop♯ .force = stop
 
-data Pipe {α : Level} (A B : Set α) (i : Size) : Set α where
-  stop : Pipe A B i
-  yield : (value : B) → (next : Thunk (Pipe A B) i) → Pipe A B i
-  demand : (onNext : (value : A) → Thunk (Pipe A B) i) → Pipe A B i
-  lazy : (next : Thunk (Pipe A B) i) → Pipe A B i
+  id : ∀ {i} {α} {A : Set α} → Pipe A A i
+  id′ : ∀ {i} {α} {A : Set α} → A → Pipe A A i
+  id = demand λ value → λ where .force → id′ value
+  id′ value = yield value λ where .force → id
 
-stop♯ : ∀ {i} {α} {A B : Set α} → Thunk (Pipe A B) i
-stop♯ .force = stop
+module Composition where
+  open Core
 
-Fuel : Set
-Fuel = ℕ
+  infixl 9 _|>_ _♯|>_ _|>♯_ _♯|>♯_
+  infixr 9 _<|_
 
-process : ∀ {α} {A B : Set α} → Fuel → Pipe A B ∞ → Stream A → Stream B
-process zero _ _ = []
-process (suc _) stop xs = []
-process (suc fuel) (yield value next) xs =
-  value ∷ λ where .force → process fuel (next .force) xs
-process (suc _) (demand onNext) [] = []
-process (suc fuel) (demand onNext) (x ∷ xs) =
-  process fuel (onNext x .force) (xs .force)
-process (suc fuel) (lazy next) xs =
-  process fuel (next .force) xs
+  _|>_ : ∀  {i} {α} {A B C : Set α} → Pipe A B i → Pipe B C i → Pipe A C i
+  _♯|>_ : ∀  {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → Pipe B C i → Thunk (Pipe A C) i
+  _|>♯_ : ∀  {i} {α} {A B C : Set α} → Pipe A B i → Thunk (Pipe B C) i → Thunk (Pipe A C) i
+  _♯|>♯_ : ∀  {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → Thunk (Pipe B C) i → Thunk (Pipe A C) i
+  _ |> stop = stop
+  up |> yield value next = yield value (up |>♯ next)
+  stop |> demand onNext = stop
+  yield value next |> demand onNext = lazy (next ♯|>♯ onNext value)
+  demand onNext |> down@(demand _) = demand (λ value → onNext value ♯|> down)
+  lazy up |> down@(demand _) = lazy (up ♯|> down)
+  up |> lazy down = lazy (up |>♯ down)
+  a ♯|> b = λ where .force → a .force |> b
+  a |>♯ b = λ where .force → a |> b .force
+  a ♯|>♯ b = λ where .force → a .force |> b .force
 
-id : ∀ {i} {α} {A : Set α} → Pipe A A i
-private id′ : ∀ {i} {α} {A : Set α} → A → Pipe A A i
-id = demand λ value → λ where .force → id′ value
-id′ value = yield value λ where .force → id
-
-_|>_ : ∀  {i} {α} {A B C : Set α} → Pipe A B i → Pipe B C i → Pipe A C i
-_♯|>_ : ∀  {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → Pipe B C i → Thunk (Pipe A C) i
-_|>♯_ : ∀  {i} {α} {A B C : Set α} → Pipe A B i → Thunk (Pipe B C) i → Thunk (Pipe A C) i
-_♯|>♯_ : ∀  {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → Thunk (Pipe B C) i → Thunk (Pipe A C) i
-_ |> stop = stop
-up |> yield value next = yield value (up |>♯ next)
-stop |> demand onNext = stop
-yield value next |> demand onNext = lazy (next ♯|>♯ onNext value)
-demand onNext |> down@(demand _) = demand (λ value → onNext value ♯|> down)
-lazy up |> down@(demand _) = lazy (up ♯|> down)
-up |> lazy down = lazy (up |>♯ down)
-a ♯|> b = λ where .force → a .force |> b
-a |>♯ b = λ where .force → a |> b .force
-a ♯|>♯ b = λ where .force → a .force |> b .force
-
-_<|_ : ∀ {i} {α} {A B C : Set α} → Pipe B C i → Pipe A B i → Pipe A C i
-down <| up = up |> down
-
-_++_ : ∀ {i : Size} {α} → {A B : Set α} → Pipe A B i → Pipe A B i → Pipe A B i
-private _♯++_ : ∀ {i : Size} {α} → {A B : Set α} → Thunk (Pipe A B) i → Pipe A B i → Thunk (Pipe A B) i
-stop ++ b = b
-yield value next ++ b = yield value (next ♯++ b)
-demand onNext ++ b = demand λ value → onNext value ♯++ b
-lazy next ++ b = lazy (next ♯++ b)
-a ♯++ b = λ where .force → a .force ++ b
+  _<|_ : ∀ {i} {α} {A B C : Set α} → Pipe B C i → Pipe A B i → Pipe A C i
+  down <| up = up |> down
 
 module Relation where
   open import Level
   open import Relation.Binary
+
+  open Core
 
   module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : Set α} → IsEquivalence (R {T})) where
     infix 1 _⊢_≈_
@@ -145,28 +121,24 @@ module Relation where
     import Relation.Binary.PropositionalEquality as Eq
     open Generic {α} {α} Eq._≡_ Eq.isEquivalence public
 
-    _≈|>_ : ∀ {i} {A B C : Set α} {a c : Pipe A B ∞} {b d : Pipe B C ∞}
-      → i ⊢ a ≈ c
-      → i ⊢ b ≈ d
-      → i ⊢ a |> b ≈ c |> d
-    ac ≈|> ≈stop = ≈stop
-    ac ≈|> ≈yield value next = ≈yield value λ where .force → ac ≈|> next .force
-    ≈stop ≈|> ≈demand onNext = ≈stop
-    ≈yield {value} Eq.refl next ≈|> ≈demand onNext = ≈lazyᵇ λ where .force → next .force ≈|> onNext value .force
-    ≈demand onNext₁ ≈|> ≈demand onNext₂ = ≈demand λ value → λ where .force → onNext₁ value .force ≈|> ≈demand onNext₂
-    ≈lazyˡ next ≈|> ≈demand onNext = ≈lazyˡ λ where .force → next .force ≈|> ≈demand onNext
-    ≈lazyʳ next ≈|> ≈demand onNext = ≈lazyʳ λ where .force → next .force ≈|> ≈demand onNext
-    ≈thunk relation ≈|> ≈demand onNext = ≈thunk λ where .force → relation .force ≈|> ≈demand onNext
-    ac ≈|> ≈lazyˡ next = ≈lazyˡ λ where .force → ac ≈|> next .force
-    ac ≈|> ≈lazyʳ next = ≈lazyʳ λ where .force → ac ≈|> next .force
-    ac ≈|> ≈thunk relation = ≈thunk λ where .force → ac ≈|> relation .force
-
 module Algebra where
   open import Algebra.Definitions
   open import Algebra.Structures
   import Relation.Binary.PropositionalEquality as Eq
+  open import Data.Product as Product using (_,_)
 
+  open Core
   open Relation.PropositionalEquality
+
+  infixr 5 _++_ _♯++_
+
+  _++_ : ∀ {i : Size} {α} → {A B : Set α} → Pipe A B i → Pipe A B i → Pipe A B i
+  _♯++_ : ∀ {i : Size} {α} → {A B : Set α} → Thunk (Pipe A B) i → Pipe A B i → Thunk (Pipe A B) i
+  stop ++ b = b
+  yield value next ++ b = yield value (next ♯++ b)
+  demand onNext ++ b = demand λ value → onNext value ♯++ b
+  lazy next ++ b = lazy (next ♯++ b)
+  a ♯++ b = λ where .force → a .force ++ b
 
   ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (_⊢_≈_ i {A} {B}) _++_
   ++-cong ≈stop b = b
@@ -215,12 +187,90 @@ module Algebra where
       ; identity = ++-identity
       }
 
-module Reasoning where
+module Functional where
+  open import Data.Bool
+  open import Data.Nat
+
+  open Core
+
+  blackHole : ∀ {i} {α} {A B : Set α} → Pipe A B i
+  blackHole = demand λ _ → λ where .force → blackHole
+
+  repeat : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
+  repeat value = yield value λ where .force → repeat value
+
+  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
+  map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
+  map f = demand λ value → λ where .force → map′ f value
+  map′ f value = yield (f value) (λ where .force → map f)
+
+  filter : ∀ {i} {α} {A : Set α} → (A → Bool) → Pipe A A i
+  filter′ : ∀ {i} {α} {A : Set α} → (A → Bool) → A → Pipe A A i
+  filter f = demand λ value → λ where .force → filter′ f value
+  filter′ f value with f value
+  ... | false = filter f
+  ... | true = yield value (λ where .force → filter f)
+
+  take : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
+  take′ : ∀ {i} {α} {A : Set α} → (count : ℕ) → A → Pipe A A i
+  take zero = stop
+  take (suc n) = demand λ value → λ where .force → take′ n value
+  take′ n value = yield value (λ where .force → take n)
+
+  drop : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
+  drop zero = id
+  drop (suc n) = demand λ _ → λ where .force → drop n
+
+module Categorical where
   open import Algebra.Definitions
-  import Relation.Binary.PropositionalEquality as Eq
+  open import Category.Applicative
+  open import Category.Functor
+  open import Function using (_∘_)
+  open import Relation.Binary.PropositionalEquality as Eq using (_≡_)
 
   open import Category
+
+  open Algebra
+  open Composition
+  open Core
+  open Functional
   open Relation.PropositionalEquality
+  open Relation.PropositionalEquality.≈-Reasoning
+
+  infixl 4 _<$>_
+  infixl 4 _⊛_
+
+  pure : ∀ {i} {α : Level} {A B : Set α} → B → Pipe A B i
+  pure value = yield value stop♯
+
+  _<$>_ : ∀ {i} {α : Level} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
+  f <$> pipe = pipe |> map f
+
+  _⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
+  _♯⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
+  stop ⊛ x = stop
+  yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
+  demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
+  lazy next ⊛ x = lazy (next ♯⊛ x)
+  f ♯⊛ x = λ where .force → f .force ⊛ x
+
+  functor : ∀ {i} {α : Level} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
+  functor =
+    record
+      { _<$>_ = _<$>_
+      }
+
+  applicative : ∀ {i} {α : Level} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
+  applicative =
+    record
+      { pure = pure
+      ; _⊛_ = _⊛_
+      }
+
+  instance pipeFunctor = functor
+
+  infixl 4 _≈<$>_
+  infixl 4 _≈⊛_
 
   |>-identityˡ : ∀ {i} {α} {A B : Set α} → (pipe : Pipe A B ∞)
     → i ⊢ id |> pipe ≈ pipe
@@ -270,83 +320,6 @@ module Reasoning where
       ; law-idʳ = <|-identityʳ
       ; law-assoc = <|-assoc
       }
-
-module Functional where
-  open import Data.Bool
-
-  blackHole : ∀ {i} {α} {A B : Set α} → Pipe A B i
-  blackHole = demand λ _ → λ where .force → blackHole
-
-  repeat : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
-  repeat value = yield value λ where .force → repeat value
-
-  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
-  private map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
-  map f = demand λ value → λ where .force → map′ f value
-  map′ f value = yield (f value) (λ where .force → map f)
-
-  filter : ∀ {i} {α} {A : Set α} → (A → Bool) → Pipe A A i
-  private filter′ : ∀ {i} {α} {A : Set α} → (A → Bool) → A → Pipe A A i
-  filter f = demand λ value → λ where .force → filter′ f value
-  filter′ f value with f value
-  ... | false = filter f
-  ... | true = yield value (λ where .force → filter f)
-
-  take : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
-  private take′ : ∀ {i} {α} {A : Set α} → (count : ℕ) → A → Pipe A A i
-  take zero = stop
-  take (suc n) = demand λ value → λ where .force → take′ n value
-  take′ n value = yield value (λ where .force → take n)
-
-  drop : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
-  drop zero = id
-  drop (suc n) = demand λ _ → λ where .force → drop n
-
-module Categorical where
-  open import Category.Applicative
-  open import Category.Functor
-  open import Function using (_∘_)
-  open import Relation.Binary.PropositionalEquality as Eq using (_≡_)
-
-  open Algebra
-  open Functional
-  open Relation.PropositionalEquality
-  open Relation.PropositionalEquality.≈-Reasoning
-
-  infixl 4 _<$>_
-  infixl 4 _⊛_
-
-  pure : ∀ {i} {α : Level} {A B : Set α} → B → Pipe A B i
-  pure value = yield value stop♯
-
-  _<$>_ : ∀ {i} {α : Level} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
-  f <$> pipe = pipe |> map f
-
-  _⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
-  private _♯⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
-  stop ⊛ x = stop
-  yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
-  demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
-  lazy next ⊛ x = lazy (next ♯⊛ x)
-  f ♯⊛ x = λ where .force → f .force ⊛ x
-
-  functor : ∀ {i} {α : Level} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
-  functor =
-    record
-      { _<$>_ = _<$>_
-      }
-
-  applicative : ∀ {i} {α : Level} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
-  applicative =
-    record
-      { pure = pure
-      ; _⊛_ = _⊛_
-      }
-
-  instance pipeFunctor = functor
-
-  infixl 4 _≈<$>_
-  infixl 4 _≈⊛_
 
   ≈map : ∀ {i} {α : Level} {A B C : Set α} {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
     → f₁ ≡ f₂
@@ -584,16 +557,48 @@ module Categorical where
       lazy next ⊛ (f ⊛ x)
     ∎
 
+module Processing where
+  open import Codata.Colist as Colist using (Colist; []; _∷_)
+  open import Data.Nat
+
+  open Core
+
+  Fuel : Set
+  Fuel = ℕ
+
+  process : ∀ {α} {A B : Set α} → Fuel → Pipe A B ∞ → Colist A ∞ → Colist B ∞
+  process zero _ _ = []
+  process (suc _) stop xs = []
+  process (suc fuel) (yield value next) xs =
+    value ∷ λ where .force → process fuel (next .force) xs
+  process (suc _) (demand onNext) [] = []
+  process (suc fuel) (demand onNext) (x ∷ xs) =
+    process fuel (onNext x .force) (xs .force)
+  process (suc fuel) (lazy next) xs =
+    process fuel (next .force) xs
+
 module Examples where
-  open import Codata.Colist.Bisimilarity renaming (_⊢_≈_ to _L⊢_≈_; refl to Lrefl)
+  open import Codata.Colist as Colist using (Colist; []; _∷_)
+  open import Codata.Colist.Bisimilarity as L using ([]; _∷_)
   open import Data.List using (List; []; _∷_)
+  open import Data.Nat
   open import Data.Nat.DivMod using (_%_)
   open import Data.Nat.Properties using (+-suc)
   open import Data.Vec as Vec using (Vec; []; _∷_)
+  open import Relation.Binary
   import Relation.Binary.PropositionalEquality as Eq
 
+  open Composition
+  open Core
   open Functional
+  open Processing
   open Relation.PropositionalEquality
+
+  postulate
+    thunk≈ : ∀ {i} {α} {A : Set α} {a b : A}
+      → {_⊢_≈_ : Size → Rel A α}
+      → i ⊢ a ≈ b
+      → Thunk.Thunk^R (_⊢_≈_) i (λ where .force → a) (λ where .force → b)
 
   nats : ∀ {i} → Colist ℕ i
   natsFrom : ∀ {i} → ℕ → Colist ℕ i
@@ -602,20 +607,20 @@ module Examples where
 
   process-id : ∀ {i} {α} {A : Set α} (size : ℕ) (xs : Vec A size)
     → let xs-stream = Colist.fromList (Vec.toList xs)
-      in i L⊢ process (size + size) id xs-stream ≈ xs-stream
+      in i L.⊢ process (size + size) id xs-stream ≈ xs-stream
   process-id 0 [] = []
   process-id (suc size) (x ∷ xs) =
-    Codata.Colist.Bisimilarity.≈-Reasoning.begin
+    L.≈-Reasoning.begin
       process (suc size + suc size) id (Colist.fromList (Vec.toList (x ∷ xs)))
-    Codata.Colist.Bisimilarity.≈-Reasoning.≈⟨ Lrefl ⟩
+    L.≈-Reasoning.≈⟨ L.refl ⟩
       process (size + suc size) (id′ x) (Colist.fromList (Vec.toList xs))
-    Codata.Colist.Bisimilarity.≈-Reasoning.≈⟨ fromEq (Eq.cong (λ n → process n (id′ x) (Colist.fromList (Vec.toList xs))) (+-suc size size)) ⟩
+    L.≈-Reasoning.≈⟨ L.fromEq (Eq.cong (λ n → process n (id′ x) (Colist.fromList (Vec.toList xs))) (+-suc size size)) ⟩
       process (suc (size + size)) (id′ x) (Colist.fromList (Vec.toList xs))
-    Codata.Colist.Bisimilarity.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → Lrefl) ⟩
+    L.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → L.refl) ⟩
       (x ∷ λ where .force → process (size + size) id (Colist.fromList (Vec.toList xs)))
-    Codata.Colist.Bisimilarity.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → process-id size xs) ⟩
+    L.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → process-id size xs) ⟩
       Colist.fromList (Vec.toList (x ∷ xs))
-    Codata.Colist.Bisimilarity.≈-Reasoning.∎
+    L.≈-Reasoning.∎
 
   _ : ∀ {i} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
   _ = helper
@@ -623,8 +628,8 @@ module Examples where
     helper : ∀ {i : Size} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
     helper = ≈demand λ _ → λ where .force → ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → helper
 
-  _ : ∀ {i} → i L⊢ process 100 (map (_+ 1)) (Colist.fromList (1 ∷ 2 ∷ 3 ∷ [])) ≈ Colist.fromList (2 ∷ 3 ∷ 4 ∷ [])
+  _ : ∀ {i} → i L.⊢ process 100 (map (_+ 1)) (Colist.fromList (1 ∷ 2 ∷ 3 ∷ [])) ≈ Colist.fromList (2 ∷ 3 ∷ 4 ∷ [])
   _ = Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → []
 
-  _ : ∀ {i} → i L⊢ process 100 (drop 5 |> filter (λ n → n % 2 ≡ᵇ 0) |> map (_* 2) |> take 3) nats ≈ Colist.fromList (12 ∷ 16 ∷ 20 ∷ [])
+  _ : ∀ {i} → i L.⊢ process 100 (drop 5 |> filter (λ n → n % 2 ≡ᵇ 0) |> map (_* 2) |> take 3) nats ≈ Colist.fromList (12 ∷ 16 ∷ 20 ∷ [])
   _ = Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → []
