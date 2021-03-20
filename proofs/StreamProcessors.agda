@@ -187,40 +187,6 @@ module Algebra where
       ; identity = ++-identity
       }
 
-module Functional where
-  open import Data.Bool
-  open import Data.Nat
-
-  open Core
-
-  blackHole : ∀ {i} {α} {A B : Set α} → Pipe A B i
-  blackHole = demand λ _ → λ where .force → blackHole
-
-  repeat : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
-  repeat value = yield value λ where .force → repeat value
-
-  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
-  map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
-  map f = demand λ value → λ where .force → map′ f value
-  map′ f value = yield (f value) (λ where .force → map f)
-
-  filter : ∀ {i} {α} {A : Set α} → (A → Bool) → Pipe A A i
-  filter′ : ∀ {i} {α} {A : Set α} → (A → Bool) → A → Pipe A A i
-  filter f = demand λ value → λ where .force → filter′ f value
-  filter′ f value with f value
-  ... | false = filter f
-  ... | true = yield value (λ where .force → filter f)
-
-  take : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
-  take′ : ∀ {i} {α} {A : Set α} → (count : ℕ) → A → Pipe A A i
-  take zero = stop
-  take (suc n) = demand λ value → λ where .force → take′ n value
-  take′ n value = yield value (λ where .force → take n)
-
-  drop : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
-  drop zero = id
-  drop (suc n) = demand λ _ → λ where .force → drop n
-
 module Categorical where
   open import Algebra.Definitions
   open import Category.Applicative
@@ -234,7 +200,6 @@ module Categorical where
   open Algebra
   open Composition
   open Core
-  open Functional
   open Relation.PropositionalEquality
   open Relation.PropositionalEquality.≈-Reasoning
 
@@ -242,6 +207,11 @@ module Categorical where
 
   pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
   pure value = yield value stop♯
+
+  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
+  map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
+  map f = demand λ value → λ where .force → map′ f value
+  map′ f value = yield (f value) (λ where .force → map f)
 
   _<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
   f <$> pipe = pipe |> map f
@@ -607,6 +577,37 @@ module Categorical where
     ∎
   monad-associativity (demand onNext) f g = ≈demand λ value → λ where .force → monad-associativity (onNext value .force) f g
   monad-associativity (lazy next) f g = ≈lazyᵇ λ where .force → monad-associativity (next .force) f g
+
+module Functional where
+  open import Data.Bool
+  open import Data.Nat
+
+  open Core
+  open Categorical
+  open Categorical using (map) public
+
+  blackHole : ∀ {i} {α} {A B : Set α} → Pipe A B i
+  blackHole = demand λ _ → λ where .force → blackHole
+
+  repeat : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
+  repeat value = yield value λ where .force → repeat value
+
+  filter : ∀ {i} {α} {A : Set α} → (A → Bool) → Pipe A A i
+  filter′ : ∀ {i} {α} {A : Set α} → (A → Bool) → A → Pipe A A i
+  filter f = demand λ value → λ where .force → filter′ f value
+  filter′ f value with f value
+  ... | false = filter f
+  ... | true = yield value (λ where .force → filter f)
+
+  take : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
+  take′ : ∀ {i} {α} {A : Set α} → (count : ℕ) → A → Pipe A A i
+  take zero = stop
+  take (suc n) = demand λ value → λ where .force → take′ n value
+  take′ n value = yield value (λ where .force → take n)
+
+  drop : ∀ {i} {α} {A : Set α} → (count : ℕ) → Pipe A A i
+  drop zero = id
+  drop (suc n) = demand λ _ → λ where .force → drop n
 
 module Processing where
   open import Codata.Colist as Colist using (Colist; []; _∷_)
