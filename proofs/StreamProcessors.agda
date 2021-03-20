@@ -225,6 +225,7 @@ module Categorical where
   open import Algebra.Definitions
   open import Category.Applicative
   open import Category.Functor
+  open import Category.Monad
   open import Function using (_∘_)
   open import Relation.Binary.PropositionalEquality as Eq using (_≡_)
 
@@ -237,37 +238,53 @@ module Categorical where
   open Relation.PropositionalEquality
   open Relation.PropositionalEquality.≈-Reasoning
 
-  infixl 4 _<$>_
-  infixl 4 _⊛_
+  infixl 4 _<$>_ _⊛_ _>>=_
 
-  pure : ∀ {i} {α : Level} {A B : Set α} → B → Pipe A B i
+  pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
   pure value = yield value stop♯
 
-  _<$>_ : ∀ {i} {α : Level} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
+  _<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
   f <$> pipe = pipe |> map f
 
-  _⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
-  _♯⊛_ : ∀ {i} {α : Level} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
+  _⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
+  _♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
   stop ⊛ x = stop
   yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
   demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
   lazy next ⊛ x = lazy (next ♯⊛ x)
   f ♯⊛ x = λ where .force → f .force ⊛ x
 
-  functor : ∀ {i} {α : Level} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
+  _>>=_ : ∀ {i} {α} {A B C : Set α} → Pipe A B i → (B → Pipe A C i) → Pipe A C i
+  _♯>>=_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
+  stop >>= f = stop
+  yield value next >>= f = f value ++ lazy (next ♯>>= f)
+  demand onNext >>= f = demand λ value → onNext value ♯>>= f
+  lazy next >>= f = lazy (next ♯>>= f)
+  pipe ♯>>= f = λ where .force → pipe .force >>= f
+
+  functor : ∀ {i} {α} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
   functor =
     record
       { _<$>_ = _<$>_
       }
 
-  applicative : ∀ {i} {α : Level} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
+  applicative : ∀ {i} {α} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
   applicative =
     record
       { pure = pure
       ; _⊛_ = _⊛_
       }
 
+  monad : ∀ {i} {α} {A : Set α} → RawMonad {α} (λ B → Pipe A B i)
+  monad =
+    record
+      { return = pure
+      ; _>>=_ = _>>=_
+      }
+
   instance pipeFunctor = functor
+  instance pipeApplicative = applicative
+  instance pipeMonad = monad
 
   infixl 4 _≈<$>_
   infixl 4 _≈⊛_
@@ -338,25 +355,21 @@ module Categorical where
     → i ⊢ f₁ <$> x₁ ≈ f₂ <$> x₂
   f ≈<$> x = ≈map f x
 
-  functor-identity : ∀ {i} {α} {A B : Set α}
-    → (pipe : Pipe A B ∞)
-    → let _<$>_ = functor .RawFunctor._<$>_ in
-      i ⊢ Function.id <$> pipe ≈ pipe
+  functor-identity : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
+    → i ⊢ Function.id <$> pipe ≈ pipe
   functor-identity stop = ≈stop
   functor-identity (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → functor-identity (next .force)
   functor-identity (demand onNext) = ≈demand λ value → λ where .force → functor-identity (onNext value .force)
   functor-identity (lazy next) = ≈lazyᵇ λ where .force → functor-identity (next .force)
 
-  functor-compose : ∀ {i} {α} {A B C D : Set α}
-    → (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
+  functor-compose : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
     → i ⊢ (g ∘ f) <$> pipe ≈ ((g <$>_) ∘ (f <$>_)) pipe
   functor-compose stop f g = ≈stop
   functor-compose (yield value next) f g = ≈lazyᵇ λ where .force → ≈lazyʳ λ where .force → ≈yield Eq.refl λ where .force → functor-compose (next .force) f g
   functor-compose (demand onNext) f g = ≈demand λ value → λ where .force → functor-compose (onNext value .force) f g
   functor-compose (lazy next) f g = ≈lazyᵇ λ where .force → functor-compose (next .force) f g
 
-  functor-concatenation : ∀ {i} {α} {A B C : Set α}
-    → (f : B → C) (x y : Pipe A B ∞)
+  functor-concatenation : ∀ {i} {α} {A B C : Set α} (f : B → C) (x y : Pipe A B ∞)
     → i ⊢ (f <$> x) ++ (f <$> y) ≈ f <$> (x ++ y)
   functor-concatenation f stop y = refl
   functor-concatenation f (yield value next) y =
@@ -385,8 +398,7 @@ module Categorical where
   ≈lazyʳ next ≈⊛ x = ≈lazyʳ λ where .force → next .force ≈⊛ x
   ≈thunk relation ≈⊛ x = ≈thunk λ where .force → relation .force ≈⊛ x
 
-  applicative-identity : ∀ {i} {α} {A B : Set α}
-    → (x : Pipe A B ∞)
+  applicative-identity : ∀ {i} {α} {A B : Set α} (x : Pipe A B ∞)
     → i ⊢ pure Function.id ⊛ x ≈ x
   applicative-identity stop = ≈lazyˡ λ where .force → ≈stop
   applicative-identity (yield value next) =
@@ -420,18 +432,15 @@ module Categorical where
       lazy next
     ∎
 
-  applicative-homomorphism : ∀ {i} {α} {A B C : Set α}
-    → (f : B → C) (x : B)
+  applicative-homomorphism : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : B)
     → i ⊢ pure {A = A} f ⊛ pure {A = A} x ≈ pure {A = A} (f x)
   applicative-homomorphism f x = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → refl
 
-  applicative-map : ∀ {i} {α} {A B C : Set α}
-    → (f : B → C) (x : Pipe A B ∞)
+  applicative-map : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : Pipe A B ∞)
     → i ⊢ pure f ⊛ x ≈ f <$> x
   applicative-map f x = ++-identityʳ (≈lazyˡ λ where .force → refl) (f <$> x)
 
-  applicative-interchange : ∀ {i} {α} {A B : Set α}
-    → (pipe : Pipe A (A → B) ∞) (x : A)
+  applicative-interchange : ∀ {i} {α} {A B : Set α} (pipe : Pipe A (A → B) ∞) (x : A)
     → i ⊢ pipe ⊛ pure x ≈ pure (λ g → g x) ⊛ pipe
   applicative-interchange stop x = ≈lazyʳ λ where .force → refl
   applicative-interchange (yield value next) x =
@@ -499,8 +508,7 @@ module Categorical where
   applicative-concatenation (demand onNext) g x = ≈demand λ value → λ where .force → applicative-concatenation (onNext value .force) g x
   applicative-concatenation (lazy next) g x = ≈lazyᵇ λ where .force → applicative-concatenation (next .force) g x
 
-  applicative-composition : ∀ {i} {α} {A B C D : Set α}
-    → (g : Pipe A (C → D) ∞) (f : Pipe A (B → C) ∞) (x : Pipe A B ∞)
+  applicative-composition : ∀ {i} {α} {A B C D : Set α} (g : Pipe A (C → D) ∞) (f : Pipe A (B → C) ∞) (x : Pipe A B ∞)
     → i ⊢ (((pure (λ g f x → g (f x)) ⊛ g) ⊛ f) ⊛ x) ≈ g ⊛ (f ⊛ x)
   applicative-composition stop f x =
     ≈lazyˡ λ where .force → ≈stop
@@ -556,6 +564,49 @@ module Categorical where
     ≈⟨ ≈lazyᵇ (λ where .force → applicative-composition (next .force) f x) ⟩
       lazy next ⊛ (f ⊛ x)
     ∎
+
+  monad-identityˡ : ∀ {i} {α} {A B C : Set α} (x : B) (f : B → Pipe A C ∞)
+    → i ⊢ pure x >>= f ≈ f x
+  monad-identityˡ x f = ++-identityʳ (≈lazyˡ λ where .force → ≈stop) (f x)
+
+  monad-identityʳ : ∀ {i} {α} {A B : Set α} (x : Pipe A B ∞)
+    → i ⊢ x >>= pure ≈ x
+  monad-identityʳ stop = ≈stop
+  monad-identityʳ (yield value next) = ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → monad-identityʳ (next .force)
+  monad-identityʳ (demand onNext) = ≈demand λ value → λ where .force → monad-identityʳ (onNext value .force)
+  monad-identityʳ (lazy next) = ≈lazyᵇ λ where .force → monad-identityʳ (next .force)
+
+  monad-concatenation : ∀ {i} {α} {A B C : Set α} (x y : Pipe A B ∞) (f : B → Pipe A C ∞)
+    → i ⊢ (x >>= f) ++ (y >>= f) ≈ (x ++ y) >>= f
+  monad-concatenation stop y f = refl
+  monad-concatenation (yield value next) y f =
+    begin
+      (yield value next >>= f) ++ (y >>= f)
+    ≈⟨ refl ⟩
+      ((f value) ++ lazy (next ♯>>= f)) ++ (y >>= f)
+    ≈⟨ ++-assoc (f value) (lazy (next ♯>>= f)) (y >>= f) ⟩
+      (f value) ++ (lazy (next ♯>>= f) ++ (y >>= f))
+    ≈⟨ ++-cong refl (≈lazyᵇ λ where .force → monad-concatenation (next .force) y f) ⟩
+      (yield value next ++ y) >>= f
+    ∎
+  monad-concatenation (demand onNext) y f = ≈demand λ value → λ where .force → monad-concatenation (onNext value .force) y f
+  monad-concatenation (lazy next) y f = ≈lazyᵇ λ where .force → monad-concatenation (next .force) y f
+
+  monad-associativity : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → Pipe A C ∞) (g : C → Pipe A D ∞)
+    → i ⊢ (pipe >>= f) >>= g ≈ pipe >>= (λ x → f x >>= g)
+  monad-associativity stop f g = ≈stop
+  monad-associativity (yield value next) f g =
+    begin
+      (yield value next >>= f) >>= g
+    ≈⟨ refl ⟩
+      (f value ++ lazy (next ♯>>= f)) >>= g
+    ≈⟨ sym (monad-concatenation (f value) (lazy (next ♯>>= f)) g) ⟩
+      (f value >>= g) ++ (lazy (next ♯>>= f) >>= g)
+    ≈⟨ ++-cong refl (≈lazyᵇ λ where .force → monad-associativity (next .force) f g) ⟩
+      yield value next >>= (λ x → f x >>= g)
+    ∎
+  monad-associativity (demand onNext) f g = ≈demand λ value → λ where .force → monad-associativity (onNext value .force) f g
+  monad-associativity (lazy next) f g = ≈lazyᵇ λ where .force → monad-associativity (next .force) f g
 
 module Processing where
   open import Codata.Colist as Colist using (Colist; []; _∷_)
