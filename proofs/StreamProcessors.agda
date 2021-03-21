@@ -608,7 +608,8 @@ module Functional where
   drop (suc n) = demand λ _ → λ where .force → drop n
 
 module Processing where
-  open import Codata.Colist as Colist using (Colist; []; _∷_)
+  open import Data.Empty.Polymorphic
+  open import Data.List
   open import Data.Nat
 
   open Core
@@ -616,70 +617,75 @@ module Processing where
   Fuel : Set
   Fuel = ℕ
 
-  process : ∀ {α} {A B : Set α} → Fuel → Pipe A B ∞ → Colist A ∞ → Colist B ∞
-  process zero _ _ = []
-  process (suc _) stop xs = []
-  process (suc fuel) (yield value next) xs =
-    value ∷ λ where .force → process fuel (next .force) xs
-  process (suc _) (demand onNext) [] = []
-  process (suc fuel) (demand onNext) (x ∷ xs) =
-    process fuel (onNext x .force) (xs .force)
-  process (suc fuel) (lazy next) xs =
-    process fuel (next .force) xs
+  process : ∀ {α} {A : Set α} → Fuel → Pipe ⊥ A ∞ → List A
+  process zero _ = []
+  process (suc _) stop = []
+  process (suc fuel) (yield value next) = value ∷ process fuel (next .force)
+  process (suc _) (demand onNext) = []
+  process (suc fuel) (lazy next) = process fuel (next .force)
 
 module Examples where
-  open import Codata.Colist as Colist using (Colist; []; _∷_)
-  open import Codata.Colist.Bisimilarity as L using ([]; _∷_)
-  open import Data.List using (List; []; _∷_)
-  open import Data.Nat
-  open import Data.Nat.DivMod using (_%_)
-  open import Data.Nat.Properties using (+-suc)
-  open import Data.Vec as Vec using (Vec; []; _∷_)
-  open import Relation.Binary
-  import Relation.Binary.PropositionalEquality as Eq
 
-  open Composition
-  open Core
-  open Functional
-  open Processing
-  open Relation.PropositionalEquality
+  module RelationExamples where
+    open import Data.Nat
+    import Relation.Binary.PropositionalEquality as Eq
 
-  postulate
-    thunk≈ : ∀ {i} {α} {A : Set α} {a b : A}
-      → {_⊢_≈_ : Size → Rel A α}
-      → i ⊢ a ≈ b
-      → Thunk.Thunk^R (_⊢_≈_) i (λ where .force → a) (λ where .force → b)
+    open Composition
+    open Core
+    open Functional
+    open Relation.PropositionalEquality
 
-  nats : ∀ {i} → Colist ℕ i
-  natsFrom : ∀ {i} → ℕ → Colist ℕ i
-  nats = natsFrom 0
-  natsFrom n = n ∷ λ where .force → natsFrom (suc n)
+    _ : ∀ {i} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
+    _ = helper
+      where
+      helper : ∀ {i : Size} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
+      helper = ≈demand λ _ → λ where .force → ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → helper
 
-  process-id : ∀ {i} {α} {A : Set α} (size : ℕ) (xs : Vec A size)
-    → let xs-stream = Colist.fromList (Vec.toList xs)
-      in i L.⊢ process (size + size) id xs-stream ≈ xs-stream
-  process-id 0 [] = []
-  process-id (suc size) (x ∷ xs) =
-    L.≈-Reasoning.begin
-      process (suc size + suc size) id (Colist.fromList (Vec.toList (x ∷ xs)))
-    L.≈-Reasoning.≈⟨ L.refl ⟩
-      process (size + suc size) (id′ x) (Colist.fromList (Vec.toList xs))
-    L.≈-Reasoning.≈⟨ L.fromEq (Eq.cong (λ n → process n (id′ x) (Colist.fromList (Vec.toList xs))) (+-suc size size)) ⟩
-      process (suc (size + size)) (id′ x) (Colist.fromList (Vec.toList xs))
-    L.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → L.refl) ⟩
-      (x ∷ λ where .force → process (size + size) id (Colist.fromList (Vec.toList xs)))
-    L.≈-Reasoning.≈⟨ Eq.refl ∷ (λ where .force → process-id size xs) ⟩
-      Colist.fromList (Vec.toList (x ∷ xs))
-    L.≈-Reasoning.∎
+  module ProcessingExamples where
+    open import Data.Empty.Polymorphic
+    open import Data.List using (List; []; _∷_)
+    open import Data.Nat
+    open import Data.Nat.DivMod using (_%_)
+    open import Data.Nat.Properties using (+-suc)
+    open import Data.Vec as Vec using (Vec; []; _∷_)
+    open import Relation.Binary
+    open import Relation.Binary.PropositionalEquality
+    open Relation.Binary.PropositionalEquality.≡-Reasoning
 
-  _ : ∀ {i} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
-  _ = helper
-    where
-    helper : ∀ {i : Size} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
-    helper = ≈demand λ _ → λ where .force → ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → helper
+    open Composition
+    open Core
+    open Functional
+    open Processing
 
-  _ : ∀ {i} → i L.⊢ process 100 (map (_+ 1)) (Colist.fromList (1 ∷ 2 ∷ 3 ∷ [])) ≈ Colist.fromList (2 ∷ 3 ∷ 4 ∷ [])
-  _ = Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → []
+    fromVec : ∀ {i} {α} {A : Set α} {size : ℕ}
+      → (xs : Vec A size)
+      → Pipe ⊥ A i
+    fromVec [] = stop
+    fromVec (x ∷ xs) = yield x λ where .force → fromVec xs
 
-  _ : ∀ {i} → i L.⊢ process 100 (drop 5 |> filter (λ n → n % 2 ≡ᵇ 0) |> map (_* 2) |> take 3) nats ≈ Colist.fromList (12 ∷ 16 ∷ 20 ∷ [])
-  _ = Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → Eq.refl ∷ λ where .force → []
+    process-id : ∀ {α} {A : Set α} (size : ℕ) (xs : Vec A size)
+      → process (size + size) (fromVec xs |> id) ≡ Vec.toList xs
+    process-id 0 [] = refl
+    process-id (suc size) (x ∷ xs) =
+      begin
+        process (suc size + suc size) (fromVec (x ∷ xs) |> id)
+      ≡⟨⟩
+        process (size + suc size) (fromVec xs |> id′ x)
+      ≡⟨ cong (λ n → process n (fromVec xs |> id′ x)) (+-suc size size) ⟩
+        process (suc (size + size)) (fromVec xs |> id′ x)
+      ≡⟨⟩
+        (x ∷ process (size + size) (fromVec xs |> id))
+      ≡⟨ cong (x ∷_) (process-id size xs) ⟩
+        Vec.toList (x ∷ xs)
+      ∎
+
+    _ : process 100 (fromVec (1 ∷ 2 ∷ 3 ∷ []) |> map (_+ 1)) ≡ 2 ∷ 3 ∷ 4 ∷ []
+    _ = refl
+
+    nats : ∀ {i} → Pipe ⊥ ℕ i
+    natsFrom : ∀ {i} → ℕ → Pipe ⊥ ℕ i
+    nats = natsFrom 0
+    natsFrom n = yield n λ where .force → natsFrom (suc n)
+
+    _ : process 100 (nats |> drop 5 |> filter (λ n → n % 2 ≡ᵇ 0) |> map (_* 2) |> take 3) ≡ 12 ∷ 16 ∷ 20 ∷ []
+    _ = refl
