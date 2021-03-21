@@ -208,13 +208,13 @@ module Categorical where
   pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
   pure value = yield value stop♯
 
-  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
-  map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
-  map f = demand λ value → λ where .force → map′ f value
-  map′ f value = yield (f value) (λ where .force → map f)
-
   _<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
-  f <$> pipe = pipe |> map f
+  _<$>♯_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Thunk (Pipe A B) i → Thunk (Pipe A C) i
+  f <$> stop = stop
+  f <$> yield value next = yield (f value) (f <$>♯ next)
+  f <$> demand onNext = demand λ value → f <$>♯ (onNext value)
+  f <$> lazy next = lazy (f <$>♯ next)
+  f <$>♯ x = λ where .force → f <$> x .force
 
   _⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
   _♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
@@ -308,34 +308,28 @@ module Categorical where
       ; law-assoc = <|-assoc
       }
 
-  ≈map : ∀ {i} {α : Level} {A B C : Set α} {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
-    → f₁ ≡ f₂
-    → i ⊢ x₁ ≈ x₂
-    → i ⊢ x₁ |> map f₁ ≈ x₂ |> map f₂
-  ≈map Eq.refl ≈stop = ≈stop
-  ≈map {f₁ = f₁} Eq.refl (≈yield value next) = ≈lazyᵇ λ where .force → ≈yield (Eq.cong f₁ value) λ where .force → ≈map Eq.refl (next .force)
-  ≈map Eq.refl (≈demand onNext) = ≈demand λ value → λ where .force → ≈map Eq.refl (onNext value .force)
-  ≈map Eq.refl (≈lazyˡ next) = ≈lazyˡ λ where .force → ≈map Eq.refl (next .force)
-  ≈map Eq.refl (≈lazyʳ next) = ≈lazyʳ λ where .force → ≈map Eq.refl (next .force)
-  ≈map Eq.refl (≈thunk relation) = ≈thunk λ where .force → ≈map Eq.refl (relation .force)
-
   _≈<$>_ : ∀ {i} {α : Level} {A B C : Set α} {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
     → f₁ ≡ f₂
     → i ⊢ x₁ ≈ x₂
     → i ⊢ f₁ <$> x₁ ≈ f₂ <$> x₂
-  f ≈<$> x = ≈map f x
+  f ≈<$> ≈stop = ≈stop
+  f ≈<$> ≈yield value next = ≈yield (Eq.cong₂ (λ f x → f x) f value) λ where .force → f ≈<$> next .force
+  f ≈<$> ≈demand onNext = ≈demand λ value → λ where .force → f ≈<$> onNext value .force
+  f ≈<$> ≈lazyˡ next = ≈lazyˡ λ where .force → f ≈<$> next .force
+  f ≈<$> ≈lazyʳ next = ≈lazyʳ λ where .force → f ≈<$> next .force
+  f ≈<$> ≈thunk relation = ≈thunk λ where .force → f ≈<$> relation .force
 
   functor-identity : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
     → i ⊢ Function.id <$> pipe ≈ pipe
   functor-identity stop = ≈stop
-  functor-identity (yield value next) = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → functor-identity (next .force)
+  functor-identity (yield value next) = ≈yield Eq.refl λ where .force → functor-identity (next .force)
   functor-identity (demand onNext) = ≈demand λ value → λ where .force → functor-identity (onNext value .force)
   functor-identity (lazy next) = ≈lazyᵇ λ where .force → functor-identity (next .force)
 
   functor-compose : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
     → i ⊢ (g ∘ f) <$> pipe ≈ ((g <$>_) ∘ (f <$>_)) pipe
   functor-compose stop f g = ≈stop
-  functor-compose (yield value next) f g = ≈lazyᵇ λ where .force → ≈lazyʳ λ where .force → ≈yield Eq.refl λ where .force → functor-compose (next .force) f g
+  functor-compose (yield value next) f g = ≈yield Eq.refl λ where .force → functor-compose (next .force) f g
   functor-compose (demand onNext) f g = ≈demand λ value → λ where .force → functor-compose (onNext value .force) f g
   functor-compose (lazy next) f g = ≈lazyᵇ λ where .force → functor-compose (next .force) f g
 
@@ -345,13 +339,13 @@ module Categorical where
   functor-concatenation f (yield value next) y =
     begin
       (f <$> yield value next) ++ (f <$> y)
-    ≈⟨ ≈lazyˡ (λ where .force → ≈yield Eq.refl λ where .force → refl) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → refl) ⟩
       (yield (f value) (λ where .force → f <$> next .force)) ++ (f <$> y)
     ≈⟨ ≈yield Eq.refl (λ where .force → refl) ⟩
       yield (f value) (λ where .force → (f <$> next .force) ++ (f <$> y))
     ≈⟨ ≈yield Eq.refl (λ where .force → functor-concatenation f (next .force) y) ⟩
       yield (f value) (λ where .force → f <$> (next .force ++ y))
-    ≈⟨ ≈lazyʳ (λ where .force → ≈yield Eq.refl λ where .force → refl) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → refl) ⟩
       f <$> (yield value next ++ y)
     ∎
   functor-concatenation f (demand onNext) y = ≈demand λ value → λ where .force → functor-concatenation f (onNext value .force) y
@@ -374,7 +368,7 @@ module Categorical where
   applicative-identity (yield value next) =
     begin
       pure Function.id ⊛ yield value next
-    ≈⟨ ≈lazyᵇ (λ where .force → ≈yield Eq.refl λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
       (Function.id <$> yield value next) ++ lazy (stop♯ ♯⊛ yield value next)
     ≈⟨ ++-identityʳ (≈lazyˡ λ where .force → refl) (Function.id <$> yield value next) ⟩
       Function.id <$> yield value next
@@ -404,7 +398,7 @@ module Categorical where
 
   applicative-homomorphism : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : B)
     → i ⊢ pure {A = A} f ⊛ pure {A = A} x ≈ pure {A = A} (f x)
-  applicative-homomorphism f x = ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → refl
+  applicative-homomorphism f x = ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → refl
 
   applicative-map : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : Pipe A B ∞)
     → i ⊢ pure f ⊛ x ≈ f <$> x
@@ -416,9 +410,9 @@ module Categorical where
   applicative-interchange (yield value next) x =
     begin
       yield value next ⊛ pure x
-    ≈⟨ ≈lazyᵇ (λ where .force → ≈yield Eq.refl λ where .force → ≈lazyᵇ λ where .force → refl) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → ≈lazyᵇ λ where .force → refl) ⟩
       (value <$> pure x) ++ lazy (λ where .force → next .force ⊛ pure x)
-    ≈⟨ ≈lazyˡ (λ where .force → ≈yield Eq.refl λ where .force → ≈lazyᵇ λ where .force → refl) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → ≈lazyᵇ λ where .force → refl) ⟩
       yield (value x) stop♯ ++ lazy (λ where .force → next .force ⊛ pure x)
     ≈⟨ ≈yield Eq.refl (λ where .force → ≈lazyᵇ λ where .force → refl) ⟩
       pure ((λ g → g x) value) ++ lazy (λ where .force → next .force ⊛ pure x)
@@ -428,9 +422,9 @@ module Categorical where
       pure ((λ g → g x) value) ++ lazy (λ where .force → pure (λ g → g x) ⊛ lazy next)
     ≈⟨ ≈yield Eq.refl (λ where .force → ≈lazyᵇ λ where .force → ≈lazyˡ λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
       pure ((λ g → g x) value) ++ lazy (λ where .force → pure (λ g → g x) ⊛ next .force)
-    ≈⟨ ≈lazyʳ (λ where .force → ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → ≈lazyˡ λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
       ((λ g → g x) <$> yield value next) ++ lazy (stop♯ ♯⊛ next .force)
-    ≈⟨ ≈lazyᵇ (λ where .force → ≈yield Eq.refl λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
+    ≈⟨ ≈yield Eq.refl (λ where .force → ++-cong refl (≈lazyᵇ λ where .force → refl)) ⟩
       pure (λ g → g x) ⊛ yield value next
     ∎
   applicative-interchange (demand onNext) x =
@@ -512,11 +506,11 @@ module Categorical where
     ≈⟨ refl ⟩
       ((((λ g f x → g (f x)) <$> demand onNext) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((demand (λ value → onNext value ♯|> map (λ g f x → g (f x))) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
+      ((demand (λ value → (λ g f x → g (f x)) <$>♯ onNext value) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((demand (λ value → onNext value ♯|> map (λ g f x → g (f x)) ♯++ lazy (stop♯ ♯⊛ demand onNext))) ⊛ f) ⊛ x
+      ((demand (λ value → ((λ g f x → g (f x)) <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ demand onNext))) ⊛ f) ⊛ x
     ≈⟨ ≈demand (λ value → λ where .force → ++-cong refl (≈lazyᵇ λ where .force → ≈stop)) ≈⊛ refl {x = f} ≈⊛ refl {x = x} ⟩
-      ((demand (λ value → onNext value ♯|> map (λ g f x → g (f x)) ♯++ lazy (stop♯ ♯⊛ onNext value .force))) ⊛ f) ⊛ x
+      ((demand (λ value → ((λ g f x → g (f x)) <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ onNext value .force))) ⊛ f) ⊛ x
     ≈⟨ ≈demand (λ value → λ where .force → applicative-composition (onNext value .force) f x) ⟩
       demand (λ value → onNext value ♯⊛ (f ⊛ x))
     ≈⟨ refl ⟩
@@ -584,13 +578,17 @@ module Functional where
 
   open Core
   open Categorical
-  open Categorical using (map) public
 
   blackHole : ∀ {i} {α} {A B : Set α} → Pipe A B i
   blackHole = demand λ _ → λ where .force → blackHole
 
   repeat : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
   repeat value = yield value λ where .force → repeat value
+
+  map : ∀ {i} {α} {A B : Set α} → (A → B) → Pipe A B i
+  map′ : ∀ {i : Size} {α} {A B : Set α} → (A → B) → A → Pipe A B i
+  map f = demand λ value → λ where .force → map′ f value
+  map′ f value = yield (f value) (λ where .force → map f)
 
   filter : ∀ {i} {α} {A : Set α} → (A → Bool) → Pipe A A i
   filter′ : ∀ {i} {α} {A : Set α} → (A → Bool) → A → Pipe A A i
