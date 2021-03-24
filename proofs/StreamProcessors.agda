@@ -198,7 +198,7 @@ module Categorical where
   open import Category.Applicative
   open import Category.Functor
   open import Category.Monad
-  open import Function using (_∘_)
+  open import Function using (_∘_; _∘′_)
   open import Relation.Binary.PropositionalEquality as Eq using (_≡_)
 
   open import Category
@@ -479,26 +479,26 @@ module Categorical where
   applicative-concatenation (lazy next) g x = ≈lazyᵇ λ where .force → applicative-concatenation (next .force) g x
 
   applicative-composition : ∀ {i} {α} {A B C D : Set α} (g : Pipe A (C → D) ∞) (f : Pipe A (B → C) ∞) (x : Pipe A B ∞)
-    → i ⊢ (((pure (λ g f x → g (f x)) ⊛ g) ⊛ f) ⊛ x) ≈ g ⊛ (f ⊛ x)
+    → i ⊢ (((pure _∘′_ ⊛ g) ⊛ f) ⊛ x) ≈ g ⊛ (f ⊛ x)
   applicative-composition stop f x =
     ≈lazyˡ λ where .force → ≈stop
   applicative-composition (yield value next) f x =
     begin
-      ((pure (λ g f x → g (f x)) ⊛ yield value next) ⊛ f) ⊛ x
-    ≈⟨ ((refl {x = pure (λ g f x → g (f x))} ≈⊛ ≈yield Eq.refl λ where .force → refl) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
-      ((pure (λ g f x → g (f x)) ⊛ (pure value ++ next .force)) ⊛ f) ⊛ x
-    ≈⟨ (applicative-map (λ g f x → g (f x)) (pure value ++ next .force) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
-      (((λ g f x → g (f x)) <$> (pure value ++ next .force)) ⊛ f) ⊛ x
-    ≈⟨ (sym (functor-concatenation (λ g f x → g (f x)) (pure value) (next .force)) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
-      ((((λ g f x → g (f x)) <$> pure value) ++ ((λ g f x → g (f x)) <$> next .force)) ⊛ f) ⊛ x
-    ≈⟨ (++-cong (sym (applicative-map (λ g f x → g (f x)) (pure value))) (sym (applicative-map (λ g f x → g (f x)) (next .force))) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
-      (((pure (λ g f x → g (f x)) ⊛ pure value) ++ (pure (λ g f x → g (f x)) ⊛ next .force)) ⊛ f) ⊛ x
-    ≈⟨ sym (applicative-concatenation (pure (λ g f x → g (f x)) ⊛ pure value) (pure (λ g f x → g (f x)) ⊛ next .force) f) ≈⊛ refl ⟩
-      (((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ++ ((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f)) ⊛ x
-    ≈⟨ sym (applicative-concatenation ((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f) x) ⟩
-      (((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ⊛ x) ++ (((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f) ⊛ x)
-    ≈⟨ ++-cong ((refl {x = pure (λ g f x → g (f x)) ⊛ pure value} ≈⊛ refl {x = f}) ≈⊛ refl {x = x}) (≈lazyʳ λ where .force → refl) ⟩
-      (((pure (λ g f x → g (f x)) ⊛ pure value) ⊛ f) ⊛ x) ++ lazy (λ where .force → ((pure (λ g f x → g (f x)) ⊛ next .force) ⊛ f) ⊛ x)
+      ((pure _∘′_ ⊛ yield value next) ⊛ f) ⊛ x
+    ≈⟨ ((refl {x = pure _∘′_} ≈⊛ ≈yield Eq.refl λ where .force → refl) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
+      ((pure _∘′_ ⊛ (pure value ++ next .force)) ⊛ f) ⊛ x
+    ≈⟨ (applicative-map _∘′_ (pure value ++ next .force) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
+      ((_∘′_ <$> (pure value ++ next .force)) ⊛ f) ⊛ x
+    ≈⟨ (sym (functor-concatenation _∘′_ (pure value) (next .force)) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
+      (((_∘′_ <$> pure value) ++ (_∘′_ <$> next .force)) ⊛ f) ⊛ x
+    ≈⟨ (++-cong (sym (applicative-map _∘′_ (pure value))) (sym (applicative-map _∘′_ (next .force))) ≈⊛ refl {x = f}) ≈⊛ refl {x = x} ⟩
+      (((pure _∘′_ ⊛ pure value) ++ (pure _∘′_ ⊛ next .force)) ⊛ f) ⊛ x
+    ≈⟨ sym (applicative-concatenation (pure _∘′_ ⊛ pure value) (pure _∘′_ ⊛ next .force) f) ≈⊛ refl ⟩
+      (((pure _∘′_ ⊛ pure value) ⊛ f) ++ ((pure _∘′_ ⊛ next .force) ⊛ f)) ⊛ x
+    ≈⟨ sym (applicative-concatenation ((pure _∘′_ ⊛ pure value) ⊛ f) ((pure _∘′_ ⊛ next .force) ⊛ f) x) ⟩
+      (((pure _∘′_ ⊛ pure value) ⊛ f) ⊛ x) ++ (((pure _∘′_ ⊛ next .force) ⊛ f) ⊛ x)
+    ≈⟨ ++-cong ((refl {x = pure _∘′_ ⊛ pure value} ≈⊛ refl {x = f}) ≈⊛ refl {x = x}) (≈lazyʳ λ where .force → refl) ⟩
+      (((pure _∘′_ ⊛ pure value) ⊛ f) ⊛ x) ++ lazy (λ where .force → ((pure _∘′_ ⊛ next .force) ⊛ f) ⊛ x)
     ≈⟨ ++-cong (≈thunk λ where .force → applicative-composition (pure value) f x) (≈lazyᵇ λ where .force → applicative-composition (next .force) f x) ⟩
       (pure value ⊛ (f ⊛ x)) ++ lazy (λ where .force → next .force ⊛ (f ⊛ x))
     ≈⟨ ++-cong (applicative-map value (f ⊛ x)) (≈lazyᵇ λ where .force → refl) ⟩
@@ -508,15 +508,15 @@ module Categorical where
     ∎
   applicative-composition (demand onNext) f x =
     begin
-      ((pure (λ g f x → g (f x)) ⊛ demand onNext) ⊛ f) ⊛ x
+      ((pure _∘′_ ⊛ demand onNext) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((((λ g f x → g (f x)) <$> demand onNext) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
+      (((_∘′_ <$> demand onNext) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((demand (λ value → (λ g f x → g (f x)) <$>♯ onNext value) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
+      ((demand (λ value → _∘′_ <$>♯ onNext value) ++ lazy (stop♯ ♯⊛ demand onNext)) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((demand (λ value → ((λ g f x → g (f x)) <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ demand onNext))) ⊛ f) ⊛ x
+      ((demand (λ value → (_∘′_ <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ demand onNext))) ⊛ f) ⊛ x
     ≈⟨ ≈demand (λ value → λ where .force → ++-cong refl (≈lazyᵇ λ where .force → ≈stop)) ≈⊛ refl {x = f} ≈⊛ refl {x = x} ⟩
-      ((demand (λ value → ((λ g f x → g (f x)) <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ onNext value .force))) ⊛ f) ⊛ x
+      ((demand (λ value → (_∘′_ <$>♯ onNext value) ♯++ lazy (stop♯ ♯⊛ onNext value .force))) ⊛ f) ⊛ x
     ≈⟨ ≈demand (λ value → λ where .force → applicative-composition (onNext value .force) f x) ⟩
       demand (λ value → onNext value ♯⊛ (f ⊛ x))
     ≈⟨ refl ⟩
@@ -524,13 +524,13 @@ module Categorical where
     ∎
   applicative-composition (lazy next) f x =
     begin
-      ((pure (λ g f x → g (f x)) ⊛ lazy next) ⊛ f) ⊛ x
+      ((pure _∘′_ ⊛ lazy next) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((((λ g f x → g (f x)) <$> lazy next) ++ lazy (stop♯ ♯⊛ lazy next)) ⊛ f) ⊛ x
-    ≈⟨ ++-cong (refl {x = (λ g f x → g (f x)) <$> lazy next}) (≈lazyᵇ λ where .force → ≈stop) ≈⊛ refl {x = f} ≈⊛ refl {x = x} ⟩
-      ((((λ g f x → g (f x)) <$> lazy next) ++ _) ⊛ f) ⊛ x
+      (((_∘′_ <$> lazy next) ++ lazy (stop♯ ♯⊛ lazy next)) ⊛ f) ⊛ x
+    ≈⟨ ++-cong (refl {x = _∘′_ <$> lazy next}) (≈lazyᵇ λ where .force → ≈stop) ≈⊛ refl {x = f} ≈⊛ refl {x = x} ⟩
+      (((_∘′_ <$> lazy next) ++ _) ⊛ f) ⊛ x
     ≈⟨ refl ⟩
-      ((((λ g f x → g (f x)) <$> lazy next) ++ _) ⊛ f) ⊛ x
+      (((_∘′_ <$> lazy next) ++ _) ⊛ f) ⊛ x
     ≈⟨ ≈lazyᵇ (λ where .force → applicative-composition (next .force) f x) ⟩
       lazy next ⊛ (f ⊛ x)
     ∎
