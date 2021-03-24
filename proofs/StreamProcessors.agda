@@ -36,9 +36,9 @@ module Composition where
   demand onNext |> down@(demand _) = demand (λ value → onNext value ♯|> down)
   lazy up |> down@(demand _) = lazy (up ♯|> down)
   up |> lazy down = lazy (up |>♯ down)
-  a ♯|> b = λ where .force → a .force |> b
-  a |>♯ b = λ where .force → a |> b .force
-  a ♯|>♯ b = λ where .force → a .force |> b .force
+  (a ♯|> b) .force = a .force |> b
+  (a |>♯ b) .force = a |> b .force
+  (a ♯|>♯ b) .force = a .force |> b .force
 
   _<|_ : ∀ {i} {α} {A B C : Set α} → Pipe B C i → Pipe A B i → Pipe A C i
   down <| up = up |> down
@@ -138,7 +138,7 @@ module Algebra where
   yield value next ++ b = yield value (next ♯++ b)
   demand onNext ++ b = demand λ value → onNext value ♯++ b
   lazy next ++ b = lazy (next ♯++ b)
-  a ♯++ b = λ where .force → a .force ++ b
+  (a ♯++ b) .force = a .force ++ b
 
   concat : ∀ {i : Size} {α} {A B : Set α} → Pipe A (Pipe A B i) i → Pipe A B i
   concat stop = stop
@@ -220,7 +220,7 @@ module Categorical where
   f <$> yield value next = yield (f value) (f <$>♯ next)
   f <$> demand onNext = demand λ value → f <$>♯ (onNext value)
   f <$> lazy next = lazy (f <$>♯ next)
-  f <$>♯ x = λ where .force → f <$> x .force
+  (f <$>♯ x) .force = f <$> x .force
 
   _⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
   _♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
@@ -228,7 +228,7 @@ module Categorical where
   yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
   demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
   lazy next ⊛ x = lazy (next ♯⊛ x)
-  f ♯⊛ x = λ where .force → f .force ⊛ x
+  (f ♯⊛ x) .force = f .force ⊛ x
 
   _>>=_ : ∀ {i} {α} {A B C : Set α} → Pipe A B i → (B → Pipe A C i) → Pipe A C i
   _♯>>=_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
@@ -236,7 +236,7 @@ module Categorical where
   yield value next >>= f = f value ++ lazy (next ♯>>= f)
   demand onNext >>= f = demand λ value → onNext value ♯>>= f
   lazy next >>= f = lazy (next ♯>>= f)
-  pipe ♯>>= f = λ where .force → pipe .force >>= f
+  (pipe ♯>>= f) .force = pipe .force >>= f
 
   functor : ∀ {i} {α} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
   functor =
