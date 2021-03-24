@@ -132,13 +132,19 @@ module Algebra where
 
   infixr 5 _++_ _♯++_
 
-  _++_ : ∀ {i : Size} {α} → {A B : Set α} → Pipe A B i → Pipe A B i → Pipe A B i
-  _♯++_ : ∀ {i : Size} {α} → {A B : Set α} → Thunk (Pipe A B) i → Pipe A B i → Thunk (Pipe A B) i
+  _++_ : ∀ {i : Size} {α} {A B : Set α} → Pipe A B i → Pipe A B i → Pipe A B i
+  _♯++_ : ∀ {i : Size} {α} {A B : Set α} → Thunk (Pipe A B) i → Pipe A B i → Thunk (Pipe A B) i
   stop ++ b = b
   yield value next ++ b = yield value (next ♯++ b)
   demand onNext ++ b = demand λ value → onNext value ♯++ b
   lazy next ++ b = lazy (next ♯++ b)
   a ♯++ b = λ where .force → a .force ++ b
+
+  concat : ∀ {i : Size} {α} {A B : Set α} → Pipe A (Pipe A B i) i → Pipe A B i
+  concat stop = stop
+  concat (yield pipe next) = pipe ++ lazy λ where .force → concat (next .force)
+  concat (demand onNext) = demand λ value → λ where .force → concat (onNext value .force)
+  concat (lazy next) = lazy λ where .force → concat (next .force)
 
   ++-cong : ∀ {i} {α} {A B : Set α} → Congruent₂ (_⊢_≈_ i {A} {B}) _++_
   ++-cong ≈stop b = b
