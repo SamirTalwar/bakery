@@ -22,8 +22,8 @@ module Core where
 module Composition where
   open Core
 
-  infixl 9 _|>_ _♯|>_ _|>♯_ _♯|>♯_
-  infixr 9 _<|_
+  infixl 4 _|>_ _♯|>_ _|>♯_ _♯|>♯_
+  infixr 4 _<|_
 
   _|>_ : ∀  {i} {α} {A B C : Set α} → Pipe A B i → Pipe B C i → Pipe A C i
   _♯|>_ : ∀  {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → Pipe B C i → Thunk (Pipe A C) i
