@@ -18,53 +18,54 @@ open import StreamProcessors.Relation
 open StreamProcessors.Relation.PropositionalEquality
 open StreamProcessors.Relation.PropositionalEquality.≈-Reasoning
 
-infixl 4 _<$>_ _⊛_ _>>=_
+module Operators where
+  infixl 4 _<$>_ _⊛_ _>>=_
 
-pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
-pure value = yield value stop♯
+  pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
+  pure value = yield value stop♯
 
-_<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
-_<$>♯_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Thunk (Pipe A B) i → Thunk (Pipe A C) i
-f <$> stop = stop
-f <$> yield value next = yield (f value) (f <$>♯ next)
-f <$> demand onNext = demand λ value → f <$>♯ (onNext value)
-f <$> lazy next = lazy (f <$>♯ next)
-(f <$>♯ x) .force = f <$> x .force
+  _<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
+  _<$>♯_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Thunk (Pipe A B) i → Thunk (Pipe A C) i
+  f <$> stop = stop
+  f <$> yield value next = yield (f value) (f <$>♯ next)
+  f <$> demand onNext = demand λ value → f <$>♯ (onNext value)
+  f <$> lazy next = lazy (f <$>♯ next)
+  (f <$>♯ x) .force = f <$> x .force
 
-_⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
-_♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
-stop ⊛ x = stop
-yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
-demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
-lazy next ⊛ x = lazy (next ♯⊛ x)
-(f ♯⊛ x) .force = f .force ⊛ x
+  _⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
+  _♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
+  stop ⊛ x = stop
+  yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
+  demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
+  lazy next ⊛ x = lazy (next ♯⊛ x)
+  (f ♯⊛ x) .force = f .force ⊛ x
 
-_>>=_ : ∀ {i} {α} {A B C : Set α} → Pipe A B i → (B → Pipe A C i) → Pipe A C i
-_♯>>=_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
-stop >>= f = stop
-yield value next >>= f = f value ++ lazy (next ♯>>= f)
-demand onNext >>= f = demand λ value → onNext value ♯>>= f
-lazy next >>= f = lazy (next ♯>>= f)
-(pipe ♯>>= f) .force = pipe .force >>= f
+  _>>=_ : ∀ {i} {α} {A B C : Set α} → Pipe A B i → (B → Pipe A C i) → Pipe A C i
+  _♯>>=_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
+  stop >>= f = stop
+  yield value next >>= f = f value ++ lazy (next ♯>>= f)
+  demand onNext >>= f = demand λ value → onNext value ♯>>= f
+  lazy next >>= f = lazy (next ♯>>= f)
+  (pipe ♯>>= f) .force = pipe .force >>= f
 
 functor : ∀ {i} {α} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
 functor =
   record
-    { _<$>_ = _<$>_
+    { _<$>_ = Operators._<$>_
     }
 
 applicative : ∀ {i} {α} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
 applicative =
   record
-    { pure = pure
-    ; _⊛_ = _⊛_
+    { pure = Operators.pure
+    ; _⊛_ = Operators._⊛_
     }
 
 monad : ∀ {i} {α} {A : Set α} → RawMonad {α} (λ B → Pipe A B i)
 monad =
   record
-    { return = pure
-    ; _>>=_ = _>>=_
+    { return = Operators.pure
+    ; _>>=_ = Operators._>>=_
     }
 
 instance pipeFunctor = functor
@@ -72,6 +73,8 @@ instance pipeApplicative = applicative
 instance pipeMonad = monad
 
 module Proofs where
+  open Operators
+
   infixl 4 _≈<$>_
   infixl 4 _≈⊛_
 
