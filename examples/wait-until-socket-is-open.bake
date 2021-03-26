@@ -1,0 +1,8 @@
+#!/usr/bin/env bake
+
+$args.1 |> $host
+$args.2 |> as:int |> $port
+
+test = nc -z $host $port |> if $.succeeded? then "$host:$port is up." else { sleep 1; test }
+
+test
