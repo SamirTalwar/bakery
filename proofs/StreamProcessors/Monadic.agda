@@ -6,8 +6,9 @@ open import Category.Functor
 open import Category.Monad
 open import Codata.Thunk as Thunk using (Thunk; force)
 open import Function using (_∘_; _∘′_)
+open import Level using (Level)
 open import Relation.Binary.PropositionalEquality as Eq using (_≡_)
-open import Size using (∞)
+open import Size
 
 open import Category
 
@@ -18,50 +19,56 @@ open import StreamProcessors.Relation
 open StreamProcessors.Relation.PropositionalEquality
 open StreamProcessors.Relation.PropositionalEquality.≈-Reasoning
 
+private
+  variable
+    i : Size
+    α : Level
+    A B C D : Set α
+
 module Operators where
   infixl 4 _<$>_ _⊛_ _>>=_
 
-  pure : ∀ {i} {α} {A B : Set α} → B → Pipe A B i
+  pure : B → Pipe A B i
   pure value = yield value stop♯
 
-  _<$>_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Pipe A B i → Pipe A C i
-  _<$>♯_ : ∀ {i} {α} {A B C : Set α} → (B → C) → Thunk (Pipe A B) i → Thunk (Pipe A C) i
+  _<$>_ : (B → C) → Pipe A B i → Pipe A C i
+  _<$>♯_ : (B → C) → Thunk (Pipe A B) i → Thunk (Pipe A C) i
   f <$> stop = stop
   f <$> yield value next = yield (f value) (f <$>♯ next)
   f <$> demand onNext = demand λ value → f <$>♯ (onNext value)
   f <$> lazy next = lazy (f <$>♯ next)
   (f <$>♯ x) .force = f <$> x .force
 
-  _⊛_ : ∀ {i} {α} {A B C : Set α} → Pipe A (B → C) i → Pipe A B i → Pipe A C i
-  _♯⊛_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
+  _⊛_ : Pipe A (B → C) i → Pipe A B i → Pipe A C i
+  _♯⊛_ : Thunk (Pipe A (B → C)) i → Pipe A B i → Thunk (Pipe A C) i
   stop ⊛ x = stop
   yield value next ⊛ x = (value <$> x) ++ lazy (next ♯⊛ x)
   demand onNext ⊛ x = demand λ value → onNext value ♯⊛ x
   lazy next ⊛ x = lazy (next ♯⊛ x)
   (f ♯⊛ x) .force = f .force ⊛ x
 
-  _>>=_ : ∀ {i} {α} {A B C : Set α} → Pipe A B i → (B → Pipe A C i) → Pipe A C i
-  _♯>>=_ : ∀ {i} {α} {A B C : Set α} → Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
+  _>>=_ : Pipe A B i → (B → Pipe A C i) → Pipe A C i
+  _♯>>=_ : Thunk (Pipe A B) i → (B → Pipe A C i) → Thunk (Pipe A C) i
   stop >>= f = stop
   yield value next >>= f = f value ++ lazy (next ♯>>= f)
   demand onNext >>= f = demand λ value → onNext value ♯>>= f
   lazy next >>= f = lazy (next ♯>>= f)
   (pipe ♯>>= f) .force = pipe .force >>= f
 
-functor : ∀ {i} {α} {A : Set α} → RawFunctor {α} (λ B → Pipe A B i)
+functor : RawFunctor (λ B → Pipe A B i)
 functor =
   record
     { _<$>_ = Operators._<$>_
     }
 
-applicative : ∀ {i} {α} {A : Set α} → RawApplicative {α} (λ B → Pipe A B i)
+applicative : RawApplicative {α} (λ B → Pipe A B i)
 applicative =
   record
     { pure = Operators.pure
     ; _⊛_ = Operators._⊛_
     }
 
-monad : ∀ {i} {α} {A : Set α} → RawMonad {α} (λ B → Pipe A B i)
+monad : RawMonad {α} (λ B → Pipe A B i)
 monad =
   record
     { return = Operators.pure
@@ -78,7 +85,7 @@ module Proofs where
   infixl 4 _≈<$>_
   infixl 4 _≈⊛_
 
-  _≈<$>_ : ∀ {i} {α} {A B C : Set α} {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
+  _≈<$>_ : ∀ {f₁ f₂ : B → C} {x₁ x₂ : Pipe A B ∞}
     → f₁ ≡ f₂
     → i ⊢ x₁ ≈ x₂
     → i ⊢ f₁ <$> x₁ ≈ f₂ <$> x₂
@@ -89,21 +96,21 @@ module Proofs where
   f ≈<$> ≈lazyʳ next = ≈lazyʳ λ where .force → f ≈<$> next .force
   f ≈<$> ≈thunk relation = ≈thunk λ where .force → f ≈<$> relation .force
 
-  functor-identity : ∀ {i} {α} {A B : Set α} (pipe : Pipe A B ∞)
+  functor-identity : ∀ (pipe : Pipe A B ∞)
     → i ⊢ Function.id <$> pipe ≈ pipe
   functor-identity stop = ≈stop
   functor-identity (yield value next) = ≈yield Eq.refl λ where .force → functor-identity (next .force)
   functor-identity (demand onNext) = ≈demand λ value → λ where .force → functor-identity (onNext value .force)
   functor-identity (lazy next) = ≈lazyᵇ λ where .force → functor-identity (next .force)
 
-  functor-compose : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
+  functor-compose : ∀ (pipe : Pipe A B ∞) (f : B → C) (g : C → D)
     → i ⊢ (g ∘ f) <$> pipe ≈ ((g <$>_) ∘ (f <$>_)) pipe
   functor-compose stop f g = ≈stop
   functor-compose (yield value next) f g = ≈yield Eq.refl λ where .force → functor-compose (next .force) f g
   functor-compose (demand onNext) f g = ≈demand λ value → λ where .force → functor-compose (onNext value .force) f g
   functor-compose (lazy next) f g = ≈lazyᵇ λ where .force → functor-compose (next .force) f g
 
-  functor-concatenation : ∀ {i} {α} {A B C : Set α} (f : B → C) (x y : Pipe A B ∞)
+  functor-concatenation : ∀ (f : B → C) (x y : Pipe A B ∞)
     → i ⊢ (f <$> x) ++ (f <$> y) ≈ f <$> (x ++ y)
   functor-concatenation f stop y = refl
   functor-concatenation f (yield value next) y =
@@ -121,7 +128,7 @@ module Proofs where
   functor-concatenation f (demand onNext) y = ≈demand λ value → λ where .force → functor-concatenation f (onNext value .force) y
   functor-concatenation f (lazy next) y = ≈lazyᵇ λ where .force → functor-concatenation f (next .force) y
 
-  _≈⊛_ : ∀ {i} {α} {A B C : Set α} {f₁ f₂ : Pipe A (B → C) ∞} {x₁ x₂ : Pipe A B ∞}
+  _≈⊛_ : ∀ {f₁ f₂ : Pipe A (B → C) ∞} {x₁ x₂ : Pipe A B ∞}
     → i ⊢ f₁ ≈ f₂
     → i ⊢ x₁ ≈ x₂
     → i ⊢ f₁ ⊛ x₁ ≈ f₂ ⊛ x₂
@@ -132,7 +139,7 @@ module Proofs where
   ≈lazyʳ next ≈⊛ x = ≈lazyʳ λ where .force → next .force ≈⊛ x
   ≈thunk relation ≈⊛ x = ≈thunk λ where .force → relation .force ≈⊛ x
 
-  applicative-identity : ∀ {i} {α} {A B : Set α} (x : Pipe A B ∞)
+  applicative-identity : ∀ (x : Pipe A B ∞)
     → i ⊢ pure Function.id ⊛ x ≈ x
   applicative-identity stop = ≈lazyˡ λ where .force → ≈stop
   applicative-identity (yield value next) =
@@ -166,15 +173,15 @@ module Proofs where
       lazy next
     ∎
 
-  applicative-homomorphism : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : B)
+  applicative-homomorphism : ∀ (f : B → C) (x : B)
     → i ⊢ pure {A = A} f ⊛ pure {A = A} x ≈ pure {A = A} (f x)
   applicative-homomorphism f x = ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → refl
 
-  applicative-map : ∀ {i} {α} {A B C : Set α} (f : B → C) (x : Pipe A B ∞)
+  applicative-map : ∀ (f : B → C) (x : Pipe A B ∞)
     → i ⊢ pure f ⊛ x ≈ f <$> x
   applicative-map f x = ++-identityʳ (≈lazyˡ λ where .force → refl) (f <$> x)
 
-  applicative-interchange : ∀ {i} {α} {A B : Set α} (pipe : Pipe A (A → B) ∞) (x : A)
+  applicative-interchange : ∀ (pipe : Pipe A (A → B) ∞) (x : A)
     → i ⊢ pipe ⊛ pure x ≈ pure (λ g → g x) ⊛ pipe
   applicative-interchange stop x = ≈lazyʳ λ where .force → refl
   applicative-interchange (yield value next) x =
@@ -220,7 +227,7 @@ module Proofs where
       pure (λ g → g x) ⊛ lazy next
     ∎
 
-  applicative-concatenation : ∀ {i} {α} {A B C : Set α} (f g : Pipe A (B → C) ∞) (x : Pipe A B ∞)
+  applicative-concatenation : ∀ (f g : Pipe A (B → C) ∞) (x : Pipe A B ∞)
     → i ⊢ (f ⊛ x) ++ (g ⊛ x) ≈ (f ++ g) ⊛ x
   applicative-concatenation stop g x = refl
   applicative-concatenation (yield value next) g x =
@@ -242,7 +249,7 @@ module Proofs where
   applicative-concatenation (demand onNext) g x = ≈demand λ value → λ where .force → applicative-concatenation (onNext value .force) g x
   applicative-concatenation (lazy next) g x = ≈lazyᵇ λ where .force → applicative-concatenation (next .force) g x
 
-  applicative-composition : ∀ {i} {α} {A B C D : Set α} (g : Pipe A (C → D) ∞) (f : Pipe A (B → C) ∞) (x : Pipe A B ∞)
+  applicative-composition : ∀ (g : Pipe A (C → D) ∞) (f : Pipe A (B → C) ∞) (x : Pipe A B ∞)
     → i ⊢ (((pure _∘′_ ⊛ g) ⊛ f) ⊛ x) ≈ g ⊛ (f ⊛ x)
   applicative-composition stop f x =
     ≈lazyˡ λ where .force → ≈stop
@@ -299,18 +306,18 @@ module Proofs where
       lazy next ⊛ (f ⊛ x)
     ∎
 
-  monad-identityˡ : ∀ {i} {α} {A B C : Set α} (x : B) (f : B → Pipe A C ∞)
+  monad-identityˡ : ∀ (x : B) (f : B → Pipe A C ∞)
     → i ⊢ pure x >>= f ≈ f x
   monad-identityˡ x f = ++-identityʳ (≈lazyˡ λ where .force → ≈stop) (f x)
 
-  monad-identityʳ : ∀ {i} {α} {A B : Set α} (x : Pipe A B ∞)
+  monad-identityʳ : ∀ (x : Pipe A B ∞)
     → i ⊢ x >>= pure ≈ x
   monad-identityʳ stop = ≈stop
   monad-identityʳ (yield value next) = ≈yield Eq.refl λ where .force → ≈lazyˡ λ where .force → monad-identityʳ (next .force)
   monad-identityʳ (demand onNext) = ≈demand λ value → λ where .force → monad-identityʳ (onNext value .force)
   monad-identityʳ (lazy next) = ≈lazyᵇ λ where .force → monad-identityʳ (next .force)
 
-  monad-concatenation : ∀ {i} {α} {A B C : Set α} (x y : Pipe A B ∞) (f : B → Pipe A C ∞)
+  monad-concatenation : ∀ (x y : Pipe A B ∞) (f : B → Pipe A C ∞)
     → i ⊢ (x >>= f) ++ (y >>= f) ≈ (x ++ y) >>= f
   monad-concatenation stop y f = refl
   monad-concatenation (yield value next) y f =
@@ -326,7 +333,7 @@ module Proofs where
   monad-concatenation (demand onNext) y f = ≈demand λ value → λ where .force → monad-concatenation (onNext value .force) y f
   monad-concatenation (lazy next) y f = ≈lazyᵇ λ where .force → monad-concatenation (next .force) y f
 
-  monad-associativity : ∀ {i} {α} {A B C D : Set α} (pipe : Pipe A B ∞) (f : B → Pipe A C ∞) (g : C → Pipe A D ∞)
+  monad-associativity : ∀ (pipe : Pipe A B ∞) (f : B → Pipe A C ∞) (g : C → Pipe A D ∞)
     → i ⊢ (pipe >>= f) >>= g ≈ pipe >>= (λ x → f x >>= g)
   monad-associativity stop f g = ≈stop
   monad-associativity (yield value next) f g =

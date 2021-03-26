@@ -7,6 +7,12 @@ open import Size
 
 open import StreamProcessors.Core
 
+private
+  variable
+    i : Size
+    α : Level
+    A B : Set α
+
 module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : Set α} → IsEquivalence (R {T})) where
   infix 1 _⊢_≈_
 
@@ -30,18 +36,18 @@ module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : S
       → (relation : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i (λ where .force → a) (λ where .force → b))
       → i ⊢ a ≈ b
 
-  ≈lazyᵇ : ∀ {i : Size} {A B : Set α} {a b : Thunk (Pipe A B) ∞}
+  ≈lazyᵇ : ∀ {a b : Thunk (Pipe A B) ∞}
     → (next : Thunk.Thunk^R (λ i → _⊢_≈_ i {A} {B}) i a b)
     → i ⊢ lazy a ≈ lazy b
   ≈lazyᵇ next = ≈lazyˡ λ where .force → ≈lazyʳ λ where .force → next .force
 
-  refl : ∀ {i : Size} {A B : Set α} → Reflexive (_⊢_≈_ i {A} {B})
+  refl : Reflexive (_⊢_≈_ i {A} {B})
   refl {x = stop} = ≈stop
   refl {x = yield _ _} = ≈yield (R-isEquivalence .IsEquivalence.refl) λ where .force → refl
   refl {x = demand _} = ≈demand λ _ → λ where .force → refl
   refl {x = lazy _} = ≈lazyᵇ λ where .force → refl
 
-  sym : ∀ {i : Size} {A B : Set α} → Symmetric (_⊢_≈_ i {A} {B})
+  sym : Symmetric (_⊢_≈_ i {A} {B})
   sym ≈stop = ≈stop
   sym (≈yield value next) = ≈yield (R-isEquivalence .IsEquivalence.sym value) λ where .force → sym (next .force)
   sym (≈demand onNext) = ≈demand λ value → λ where .force → sym (onNext value .force)
@@ -49,7 +55,7 @@ module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : S
   sym (≈lazyʳ next) = ≈lazyˡ λ where .force → sym (next .force)
   sym (≈thunk relation) = ≈thunk λ where .force → sym (relation .force)
 
-  trans : ∀ {i : Size} {A B : Set α} → Transitive (_⊢_≈_ i {A} {B})
+  trans : Transitive (_⊢_≈_ i {A} {B})
   trans ≈stop bc = bc
   trans (≈lazyˡ next) bc = ≈lazyˡ λ where .force → trans (next .force) bc
   trans (≈thunk relation) bc = ≈thunk λ where .force → trans (relation .force) bc
@@ -59,7 +65,7 @@ module Generic {α ρ} (R : {T : Set α} → Rel T ρ) (R-isEquivalence : {T : S
   trans (≈demand onNext₁) (≈demand onNext₂) = ≈demand λ value → λ where .force → trans (onNext₁ value .force) (onNext₂ value .force)
   trans (≈lazyʳ next₁) (≈lazyˡ next₂) = ≈thunk λ where .force → trans (next₁ .force) (next₂ .force)
 
-  isEquivalence : ∀ {i : Size} {A B : Set α} → IsEquivalence (_⊢_≈_ i {A} {B})
+  isEquivalence : IsEquivalence (_⊢_≈_ i {A} {B})
   isEquivalence =
     record
       { refl = refl

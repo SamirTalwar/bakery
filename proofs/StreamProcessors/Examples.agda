@@ -4,6 +4,12 @@ open import Codata.Thunk as Thunk using (Thunk; force)
 open import Level using (Level)
 open import Size
 
+private
+  variable
+    i : Size
+    α : Level
+    A : Set α
+
 module RelationExamples where
   open import Data.Nat
   import Relation.Binary.PropositionalEquality as Eq
@@ -14,10 +20,10 @@ module RelationExamples where
   import StreamProcessors.Relation
   open StreamProcessors.Relation.PropositionalEquality
 
-  _ : ∀ {i} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
+  _ : i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
   _ = helper
     where
-    helper : ∀ {i : Size} → i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
+    helper : i ⊢ map suc |> map suc ≈ map (λ n → suc (suc n))
     helper = ≈demand λ _ → λ where .force → ≈lazyˡ λ where .force → ≈yield Eq.refl λ where .force → helper
 
 module ProcessingExamples where
@@ -41,13 +47,13 @@ module ProcessingExamples where
   open import StreamProcessors.Monadic
   open import StreamProcessors.Processing
 
-  fromVec : ∀ {i} {α} {A : Set α} {size : ℕ}
+  fromVec : ∀ {size : ℕ}
     → (xs : Vec A size)
     → Pipe ⊥ A i
   fromVec [] = stop
   fromVec (x ∷ xs) = yield x λ where .force → fromVec xs
 
-  process-id : ∀ {α} {A : Set α} (size : ℕ) (xs : Vec A size)
+  process-id : ∀ (size : ℕ) (xs : Vec A size)
     → process (size + size) (fromVec xs |> id) ≡ Vec.toList xs
   process-id 0 [] = refl
   process-id (suc size) (x ∷ xs) =
@@ -69,7 +75,7 @@ module ProcessingExamples where
   _ : process 100 (fromVec (1 ∷ 2 ∷ 3 ∷ []) |> map (_+ 1)) ≡ 2 ∷ 3 ∷ 4 ∷ []
   _ = refl
 
-  nats : ∀ {i} → Pipe ⊥ ℕ i
+  nats : Pipe ⊥ ℕ i
   nats = natsFrom 0
     where
     natsFrom : ∀ {i} → ℕ → Pipe ⊥ ℕ i
@@ -78,7 +84,7 @@ module ProcessingExamples where
   _ : process 100 (nats |> drop 5 |> filter (λ n → n % 2 ≡ᵇ 0) |> map (_* 2) |> take 3) ≡ 12 ∷ 16 ∷ 20 ∷ []
   _ = refl
 
-  accumulate : ∀ {i} {α} {A : Set α} → Pipe A (State (List A) ⊤) i
+  accumulate : Pipe A (State (List A) ⊤) i
   accumulate = accumulate′
     where
     accumulate′ : ∀ {i} {α} {A : Set α} → Pipe A (State (List A) ⊤) i
@@ -95,7 +101,7 @@ module ProcessingExamples where
       ≡ (tt , 27 ∷ 21 ∷ 15 ∷ [])
   _ = refl
 
-  sum : ∀ {i} → Pipe ℕ (State ℕ ⊤) i
+  sum : Pipe ℕ (State ℕ ⊤) i
   sum = demand λ value → λ where .force → yield (modify (value +_)) λ where .force → sum
     where
     open RawMonadState (StateMonadState ℕ)

@@ -9,26 +9,31 @@ open import Data.Nat
 open import Data.Product
 open import Data.Unit.Polymorphic
 open import Function using (_∘_)
-open import Size using (∞)
+open import Level using (Level)
+open import Size
 
 open import Monadic
 open import StreamProcessors.Core
 open import StreamProcessors.Monadic
 
+private
+  variable
+    i : Size
+    α : Level
+    A : Set α
+    M : Set α → Set α
+
 Fuel : Set
 Fuel = ℕ
 
-process : ∀ {α} {A : Set α}
-  → Fuel
-  → Pipe ⊥ A ∞
-  → List A
+process : Fuel → Pipe ⊥ A ∞ → List A
 process zero _ = []
 process (suc _) stop = []
 process (suc fuel) (yield value next) = value ∷ process fuel (next .force)
 process (suc _) (demand onNext) = []
 process (suc fuel) (lazy next) = process fuel (next .force)
 
-processM : ∀ {α} {A : Set α} {M : Set α → Set α} {{Monad : RawMonad M}}
+processM : ∀ {{Monad : RawMonad M}}
   → Fuel
   → Pipe ⊥ (M A) ∞
   → M ⊤
@@ -38,10 +43,7 @@ processM (suc fuel) (yield value next) = value >> processM fuel (next .force)
 processM (suc fuel) (demand onNext) = return tt
 processM (suc fuel) (lazy next) = processM fuel (next .force)
 
-processMToList : ∀ {α} {A : Set α}
-  → Fuel
-  → Pipe ⊥ A ∞
-  → List A
+processMToList : Fuel → Pipe ⊥ A ∞ → List A
 processMToList {A = A} fuel pipe =
   reverse (proj₂ (processM fuel ((modify ∘ (_∷_)) <$> pipe) []))
     where
