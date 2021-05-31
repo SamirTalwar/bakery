@@ -8,7 +8,7 @@ pkgs.mkShell {
   name = "bakery";
 
   buildInputs = [
-    (pkgs.agda.withPackages(ps: [
+    (pkgs.agda.withPackages (ps: [
       ps.standard-library
     ]))
     rust.cargo
@@ -24,5 +24,5 @@ pkgs.mkShell {
     pkgs.coreutils
     pkgs.hello
     pkgs.zsh
-  ] ++ (if pkgs.stdenv.isDarwin then [ pkgs.darwin.apple_sdk.frameworks.Security ] else [ ]);
+  ] ++ (if pkgs.stdenv.isDarwin then [ pkgs.libiconv pkgs.darwin.apple_sdk.frameworks.Security ] else [ ]);
 }
