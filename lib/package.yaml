@@ -1,0 +1,20 @@
+spec-version: 0.34.7
+
+name: bakery
+synopsis: Cakes, not baking.
+author:
+  - Samir Talwar <samir@noodlesandwich.com>
+
+github: SamirTalwar/bakery
+
+default-extensions:
+  - ImportQualifiedPost
+  - OverloadedStrings
+
+dependencies:
+  - base
+  - text
+
+library:
+  source-dirs:
+    - src
