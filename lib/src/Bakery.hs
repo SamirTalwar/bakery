@@ -1,6 +1,17 @@
-module Bakery where
+module Bakery
+  ( bake,
+    recipe,
+    module Bakery.File,
+    module Bakery.Run,
+  )
+where
 
-import Data.Text (Text)
+import Bakery.Bakeable
+import Bakery.File
+import Bakery.Run
 
-hello :: Text
-hello = "Hello, world!"
+bake :: Bakeable a => Recipe a -> IO ()
+bake r = follow r *> pure ()
+
+recipe :: a -> (a -> Recipe a) -> Recipe a
+recipe = flip ($)

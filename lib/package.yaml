@@ -8,12 +8,27 @@ author:
 github: SamirTalwar/bakery
 
 default-extensions:
+  - BlockArguments
+  - DeriveFunctor
+  - DerivingStrategies
+  - ExplicitForAll
+  - FlexibleInstances
+  - GADTs
+  - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - OverloadedStrings
+  - StandaloneDeriving
+  - TypeFamilies
+  - TypeOperators
+
+ghc-options:
+  - -Wall
+  - -Werror
 
 dependencies:
   - base
   - text
+  - typed-process
 
 library:
   source-dirs:

@@ -1,0 +1,22 @@
+spec-version: 0.34.7
+
+name: bakery-examples
+synopsis: Exmples of cakes.
+author:
+  - Samir Talwar <samir@noodlesandwich.com>
+
+github: SamirTalwar/bakery
+
+default-extensions:
+  - BlockArguments
+  - ImportQualifiedPost
+
+dependencies:
+  - base
+  - bakery
+
+executables:
+  echo:
+    main: bake.hs
+    source-dirs:
+      - echo
