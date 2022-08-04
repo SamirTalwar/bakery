@@ -21,8 +21,8 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
-import System.Process.Typed qualified as Process
 import GHC.IO.Handle (hClose)
+import System.Process.Typed qualified as Process
 
 infixr 7 #>
 

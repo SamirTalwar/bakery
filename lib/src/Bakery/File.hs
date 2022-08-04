@@ -1,4 +1,4 @@
-module Bakery.File where
+module Bakery.File (file, shell) where
 
 import Bakery.Bakeable
 import Bakery.Run

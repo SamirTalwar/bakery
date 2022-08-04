@@ -1,6 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Bakery.Bakeable where
+module Bakery.Bakeable
+  ( Bakeable (..),
+    InShell (..),
+    Bake (..),
+    Output (..),
+    deriveOutputs,
+  )
+where
 
 import Control.Monad (ap)
 import Data.Typeable (Typeable)
@@ -41,8 +48,8 @@ data Output where
 instance Show Output where
   show (Output x _) = show x
 
-outputs :: forall a. Bake a -> [Output]
-outputs (Value _) = []
-outputs (Recipe out r) = [Output out r]
-outputs (Both x y) = outputs x <> outputs y
-outputs (Map _ x) = [Output out undefined | Output out _ <- outputs x]
+deriveOutputs :: forall a. Bake a -> [Output]
+deriveOutputs (Value _) = []
+deriveOutputs (Recipe out r) = [Output out r]
+deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
+deriveOutputs (Map _ x) = [Output out undefined | Output out _ <- deriveOutputs x]
