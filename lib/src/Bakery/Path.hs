@@ -5,6 +5,7 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 
 newtype Path = Path Text
+  deriving newtype (Eq)
 
 instance IsString Path where
   fromString = Path . fromString

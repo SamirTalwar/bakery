@@ -20,3 +20,7 @@ executables:
     main: bake.hs
     source-dirs:
       - echo
+  two:
+    main: bake.hs
+    source-dirs:
+      - two

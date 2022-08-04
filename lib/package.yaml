@@ -17,7 +17,9 @@ default-extensions:
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - OverloadedStrings
+  - ScopedTypeVariables
   - StandaloneDeriving
+  - TypeApplications
   - TypeFamilies
   - TypeOperators
 
