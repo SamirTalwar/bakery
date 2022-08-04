@@ -24,3 +24,7 @@ executables:
     main: bake.hs
     source-dirs:
       - two
+  uppercase:
+    main: bake.hs
+    source-dirs:
+      - uppercase

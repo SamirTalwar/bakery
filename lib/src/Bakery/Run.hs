@@ -4,7 +4,8 @@ module Bakery.Run
   ( -- * Construction
     nullStdIn,
     nullStdOut,
-    write,
+    readF,
+    writeF,
     run,
     (|>),
 
@@ -14,13 +15,14 @@ module Bakery.Run
   )
 where
 
-import Bakery.Path
+import Bakery.Bakeable (InShell (..))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
 import System.Process.Typed qualified as Process
+import GHC.IO.Handle (hClose)
 
 infixr 7 #>
 
@@ -28,7 +30,8 @@ data i #> o where
   NullStdIn :: () #> StdIn
   NullStdOut :: StdOut #> ()
   Run :: NonEmpty Arg -> StdIn #> StdOut
-  Write :: Path -> StdOut #> ()
+  Read :: FilePath -> () #> StdIn
+  Write :: FilePath -> StdOut #> ()
   Compose :: a #> b -> b #> c -> a #> c
 
 deriving stock instance Show (i #> o)
@@ -39,8 +42,11 @@ nullStdIn = NullStdIn
 nullStdOut :: StdOut #> ()
 nullStdOut = NullStdOut
 
-write :: Path -> StdOut #> ()
-write = Write
+readF :: InShell a => a -> () #> StdIn
+readF = Read . inShell
+
+writeF :: InShell a => a -> StdOut #> ()
+writeF = Write . inShell
 
 data StdIn = StdIn Text
 
@@ -49,16 +55,14 @@ data StdOut = StdOut Text
 class Argument a where
   toArg :: a -> Arg
 
-instance Argument String where
-  toArg = StringArg
+instance {-# OVERLAPPING #-} Argument String where
+  toArg = Arg
 
-data Arg where
-  StringArg :: String -> Arg
+instance {-# OVERLAPPABLE #-} InShell a => Argument a where
+  toArg = Arg . inShell
 
-deriving stock instance Show Arg
-
-fromArg :: Arg -> String
-fromArg (StringArg arg) = arg
+newtype Arg = Arg {fromArg :: String}
+  deriving newtype (Show)
 
 class RunOutput r where
   run' :: NonEmpty Arg -> r
@@ -91,9 +95,14 @@ evaluateShell' (Run (cmd :| args)) (StdIn stdin) =
           Process.setStdout Process.createPipe $
             Process.proc (fromArg cmd) (map fromArg args)
    in StdOut <$> Process.withProcessWait config \process -> do
-        Text.IO.hPutStr (Process.getStdin process) stdin
-        Text.IO.hGetContents (Process.getStdout process)
-evaluateShell' (Write (Path path)) (StdOut text) =
-  Text.IO.writeFile (Text.unpack path) text
+        let hStdin = Process.getStdin process
+            hStdout = Process.getStdout process
+        Text.IO.hPutStr hStdin stdin
+        hClose hStdin
+        Text.IO.hGetContents hStdout
+evaluateShell' (Read path) () =
+  StdIn <$> Text.IO.readFile path
+evaluateShell' (Write path) (StdOut text) =
+  Text.IO.writeFile path text
 evaluateShell' (Compose a b) i =
   evaluateShell' a i >>= evaluateShell' b

@@ -7,7 +7,11 @@ import Data.Typeable (Typeable)
 
 class (Eq a, Show a, Typeable a, Show (Recipe a)) => Bakeable a where
   data Recipe a
+  exists :: a -> IO Bool
   follow :: Recipe a -> IO a
+
+class Bakeable a => InShell a where
+  inShell :: a -> String
 
 data Bake a where
   Value :: a -> Bake a

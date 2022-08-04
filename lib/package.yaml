@@ -16,6 +16,7 @@ default-extensions:
   - GADTs
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
+  - LambdaCase
   - OverloadedStrings
   - ScopedTypeVariables
   - StandaloneDeriving
@@ -29,6 +30,7 @@ ghc-options:
 
 dependencies:
   - base
+  - directory
   - text
   - typed-process
 
