@@ -38,9 +38,9 @@ data i #> o where
 
 deriving stock instance Show (i #> o)
 
-data StdIn = StdIn Text
+newtype StdIn = StdIn Text
 
-data StdOut = StdOut Text
+newtype StdOut = StdOut Text
 
 data Path where
   InputPath :: forall a. InShell a => a -> Path

@@ -7,6 +7,7 @@ where
 import Bakery.Bakeable (Bake (..), Bakeable (..), Input (..), Output (..), deriveOutputs)
 import Bakery.File qualified
 import Control.Monad (forM, forM_)
+import Data.Functor (($>))
 import Data.List qualified as List
 import Data.Type.Equality ((:~:) (..))
 import Data.Typeable (Typeable, eqT)
@@ -22,9 +23,12 @@ bake thing = do
   logText ""
 
   if null args
-    then bakeOutputs outputs [last outputs]
+    then
+      -- consider the last recipe to be the default
+      bakeOutputs outputs [last outputs]
     else do
-      targetOutputs <- mapM (findTarget outputs) (map Bakery.File.file args)
+      -- for now, we treat all targets on the command line as files
+      targetOutputs <- mapM (findTarget outputs . Bakery.File.file) args
       bakeOutputs outputs targetOutputs
   where
     bakeOutputs :: [Output] -> [Output] -> IO ()
@@ -38,7 +42,7 @@ bake thing = do
     required :: [Output] -> [Output] -> IO [Output]
     required allOutputs targetOutputs = do
       requiredTargets <- forM targetOutputs $ \(Output _ inputs _) ->
-        sequence $ map (\(Input input) -> findTarget allOutputs input) inputs
+        mapM (\(Input input) -> findTarget allOutputs input) inputs
       pure . List.nub $ concat requiredTargets
 
     findTarget :: MonadFail m => forall a. (Eq a, Show a, Typeable a) => [Output] -> a -> m Output
@@ -55,7 +59,7 @@ bake thing = do
     bakeOutput :: Output -> IO ()
     bakeOutput (Output out _ r) = do
       logText ("Baking " <> show out <> "...")
-      follow r *> pure ()
+      follow r $> ()
 
 recipe :: Bakeable a => a -> (a -> Recipe a) -> Bake a
 recipe output produce = Recipe output $ produce output

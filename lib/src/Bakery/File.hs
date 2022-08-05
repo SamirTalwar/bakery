@@ -2,6 +2,7 @@ module Bakery.File (file, shell) where
 
 import Bakery.Bakeable
 import Bakery.Run
+import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Typeable (Typeable)
 import System.Directory qualified as Directory
@@ -18,7 +19,7 @@ instance Bakeable File where
     deriving stock (Show)
   deriveInputs (FileRecipe _ recipe) = deriveShellInputs recipe
   exists (File path) = Directory.doesPathExist path
-  follow (FileRecipe f recipe) = evaluateShell recipe *> pure f
+  follow (FileRecipe f recipe) = evaluateShell recipe $> f
 
 instance InShell File where
   inShell (File path) = path

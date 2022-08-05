@@ -44,6 +44,7 @@
           haskellCompiler
           haskellPackages.cabal-install
           haskellPackages.haskell-language-server
+          haskellPackages.hlint
           haskellPackages.hpack
           haskellPackages.ormolu
         ];
