@@ -30,6 +30,13 @@ data Bake a where
 
 instance Functor Bake where
   fmap f (Value x) = Value (f x)
+  -- This is nonsense and probably breaks a Functor law.
+  -- We need to have a 'Map' value because 'Recipe' is not a 'Functor'.
+  -- It's a data family, so 'Functor' would have to be added to every
+  -- implementation, which I do not want to do.
+  --
+  -- We can potentially get around this by storing a function and not
+  -- a 'Recipe', but that seems a little /too/ flexible.
   fmap f r@(Recipe _ _) = Map f r
   fmap f (Both x y) = Both x (fmap f y)
   fmap f (Map g x) = Map (f . g) x
@@ -66,4 +73,5 @@ deriveOutputs :: forall a. Bake a -> [Output]
 deriveOutputs (Value _) = []
 deriveOutputs (Recipe out r) = [Output out (deriveInputs r) r]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
+-- See above.
 deriveOutputs (Map _ x) = [Output out inputs undefined | Output out inputs _ <- deriveOutputs x]
