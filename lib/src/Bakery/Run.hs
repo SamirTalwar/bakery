@@ -11,11 +11,13 @@ module Bakery.Run
 
     -- * Evaluation
     type (#>),
+    deriveShellInputs,
     evaluateShell,
   )
 where
 
-import Bakery.Bakeable (InShell (..))
+import Bakery.Bakeable (InShell (..), Input (..))
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text (Text)
@@ -30,11 +32,20 @@ data i #> o where
   NullStdIn :: () #> StdIn
   NullStdOut :: StdOut #> ()
   Run :: NonEmpty Arg -> StdIn #> StdOut
-  Read :: FilePath -> () #> StdIn
-  Write :: FilePath -> StdOut #> ()
+  Read :: Path -> () #> StdIn
+  Write :: Path -> StdOut #> ()
   Compose :: a #> b -> b #> c -> a #> c
 
 deriving stock instance Show (i #> o)
+
+data StdIn = StdIn Text
+
+data StdOut = StdOut Text
+
+data Path where
+  InputPath :: forall a. InShell a => a -> Path
+
+deriving stock instance Show Path
 
 nullStdIn :: () #> StdIn
 nullStdIn = NullStdIn
@@ -43,26 +54,34 @@ nullStdOut :: StdOut #> ()
 nullStdOut = NullStdOut
 
 readF :: InShell a => a -> () #> StdIn
-readF = Read . inShell
+readF = Read . InputPath
 
 writeF :: InShell a => a -> StdOut #> ()
-writeF = Write . inShell
+writeF = Write . InputPath
 
-data StdIn = StdIn Text
+infixr 5 |>
 
-data StdOut = StdOut Text
+(|>) :: a #> b -> b #> c -> a #> c
+(|>) = Compose
+
+data Arg where
+  StringArg :: String -> Arg
+  InputArg :: InShell a => a -> Arg
+
+deriving stock instance Show Arg
 
 class Argument a where
   toArg :: a -> Arg
 
 instance {-# OVERLAPPING #-} Argument String where
-  toArg = Arg
+  toArg = StringArg
 
 instance {-# OVERLAPPABLE #-} InShell a => Argument a where
-  toArg = Arg . inShell
+  toArg = InputArg
 
-newtype Arg = Arg {fromArg :: String}
-  deriving newtype (Show)
+fromArg :: Arg -> String
+fromArg (StringArg arg) = arg
+fromArg (InputArg arg) = inShell arg
 
 class RunOutput r where
   run' :: NonEmpty Arg -> r
@@ -76,10 +95,16 @@ instance RunOutput (StdIn #> StdOut) where
 run :: (Argument a, RunOutput r) => a -> r
 run arg = run' (NonEmpty.singleton (toArg arg))
 
-infixr 5 |>
-
-(|>) :: a #> b -> b #> c -> a #> c
-(|>) = Compose
+deriveShellInputs :: i #> o -> [Input]
+deriveShellInputs NullStdIn = []
+deriveShellInputs NullStdOut = []
+deriveShellInputs (Run args) =
+  toList args >>= \case
+    StringArg _ -> []
+    InputArg arg -> [Input arg]
+deriveShellInputs (Read (InputPath input)) = [Input input]
+deriveShellInputs (Write (InputPath input)) = [Input input]
+deriveShellInputs (Compose a b) = deriveShellInputs a <> deriveShellInputs b
 
 evaluateShell :: () #> () -> IO ()
 evaluateShell program = evaluateShell' program ()
@@ -100,9 +125,9 @@ evaluateShell' (Run (cmd :| args)) (StdIn stdin) =
         Text.IO.hPutStr hStdin stdin
         hClose hStdin
         Text.IO.hGetContents hStdout
-evaluateShell' (Read path) () =
-  StdIn <$> Text.IO.readFile path
-evaluateShell' (Write path) (StdOut text) =
-  Text.IO.writeFile path text
+evaluateShell' (Read (InputPath input)) () =
+  StdIn <$> Text.IO.readFile (inShell input)
+evaluateShell' (Write (InputPath input)) (StdOut text) =
+  Text.IO.writeFile (inShell input) text
 evaluateShell' (Compose a b) i =
   evaluateShell' a i >>= evaluateShell' b

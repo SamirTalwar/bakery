@@ -18,6 +18,7 @@ default-extensions:
   - ImportQualifiedPost
   - LambdaCase
   - OverloadedStrings
+  - RankNTypes
   - ScopedTypeVariables
   - StandaloneDeriving
   - TypeApplications
