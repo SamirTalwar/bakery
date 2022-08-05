@@ -9,8 +9,7 @@ import Bakery.File qualified
 import Control.Monad (forM, forM_)
 import Data.Functor (($>))
 import Data.List qualified as List
-import Data.Type.Equality ((:~:) (..))
-import Data.Typeable (Typeable, eqT)
+import Data.Typeable (Typeable, cast)
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
 
@@ -23,8 +22,7 @@ bake thing = do
   logText ""
 
   if null args
-    then
-      -- consider the last recipe to be the default
+    then -- consider the last recipe to be the default
       bakeOutputs outputs [last outputs]
     else do
       -- for now, we treat all targets on the command line as files
@@ -51,9 +49,9 @@ bake thing = do
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput
 
     isTarget :: forall a. (Eq a, Show a, Typeable a) => a -> Output -> Bool
-    isTarget target (Output @t out _ _) =
-      case eqT @t @a of
-        Just Refl | target == out -> True
+    isTarget target (Output out _ _) =
+      case cast out of
+        Just out' | out' == target -> True
         _ -> False
 
     bakeOutput :: Output -> IO ()

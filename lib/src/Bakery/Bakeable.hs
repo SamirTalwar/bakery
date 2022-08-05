@@ -11,7 +11,7 @@ module Bakery.Bakeable
 where
 
 import Control.Monad (ap)
-import Data.Typeable (Typeable, eqT, (:~:) (..))
+import Data.Typeable (Typeable, cast)
 
 class (Eq a, Show a, Typeable a, Show (Recipe a)) => Bakeable a where
   data Recipe a
@@ -61,9 +61,9 @@ data Output where
   Output :: forall a. Bakeable a => a -> [Input] -> Recipe a -> Output
 
 instance Eq Output where
-  Output @x x _ _ == Output @y y _ _ =
-    case eqT @x @y of
-      Just Refl -> x == y
+  Output x _ _ == Output y _ _ =
+    case cast x of
+      Just x' -> x' == y
       Nothing -> False
 
 instance Show Output where
