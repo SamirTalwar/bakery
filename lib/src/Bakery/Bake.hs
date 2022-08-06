@@ -7,15 +7,28 @@ where
 import Bakery.Bakeable (Bake (..), Bakeable (..), Input (..), Output (..), deriveOutputs)
 import Bakery.File qualified
 import Control.Monad (forM, forM_)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.Reader qualified as Reader
 import Data.Functor (($>))
 import Data.List qualified as List
 import Data.Typeable (Typeable, cast)
-import System.Environment (getArgs)
-import System.IO (hPutStrLn, stderr)
+import System.Environment (getArgs, lookupEnv)
+import System.IO (Handle, hPutStrLn, stderr)
+
+data Env = Env {logger :: Maybe Handle}
+
+type Baking a = ReaderT Env IO a
 
 bake :: Bake a -> IO ()
 bake thing = do
   args <- getArgs
+  logger <- fmap (const stderr) <$> lookupEnv "BAKE_LOG"
+  let env = Env {logger}
+  runReaderT (bake' thing args) env
+
+bake' :: Bake a -> [String] -> Baking ()
+bake' thing args = do
   let outputs = deriveOutputs thing
   logText "Outputs:"
   mapM_ logValue outputs
@@ -29,7 +42,7 @@ bake thing = do
       targetOutputs <- mapM (findTarget outputs . Bakery.File.file) args
       bakeOutputs outputs targetOutputs
   where
-    bakeOutputs :: [Output] -> [Output] -> IO ()
+    bakeOutputs :: [Output] -> [Output] -> Baking ()
     bakeOutputs allOutputs targetOutputs = do
       requiredOutputs <- required allOutputs targetOutputs
       logText "Plan:"
@@ -37,7 +50,7 @@ bake thing = do
       logText ""
       mapM_ bakeOutput requiredOutputs
 
-    required :: [Output] -> [Output] -> IO [Output]
+    required :: [Output] -> [Output] -> Baking [Output]
     required allOutputs targetOutputs = do
       requiredTargets <- forM targetOutputs $ \(Output _ inputs _) ->
         mapM (\(Input input) -> findTarget allOutputs input) inputs
@@ -54,16 +67,18 @@ bake thing = do
         Just out' | out' == target -> True
         _ -> False
 
-    bakeOutput :: Output -> IO ()
+    bakeOutput :: Output -> Baking ()
     bakeOutput (Output out _ r) = do
       logText ("Baking " <> show out <> "...")
-      follow r $> ()
+      liftIO (follow r) $> ()
 
 recipe :: Bakeable a => a -> (a -> Recipe a) -> Bake a
 recipe output produce = Recipe output $ produce output
 
-logText :: String -> IO ()
-logText = hPutStrLn stderr
+logText :: String -> Baking ()
+logText text = do
+  handle <- Reader.asks logger
+  liftIO $ maybe (pure ()) (\h -> hPutStrLn h text) handle
 
-logValue :: Show a => a -> IO ()
+logValue :: Show a => a -> Baking ()
 logValue = logText . show

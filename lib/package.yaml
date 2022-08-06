@@ -17,6 +17,7 @@ default-extensions:
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - LambdaCase
+  - NamedFieldPuns
   - OverloadedStrings
   - RankNTypes
   - ScopedTypeVariables
@@ -33,6 +34,7 @@ dependencies:
   - base
   - directory
   - text
+  - transformers
   - typed-process
 
 library:
