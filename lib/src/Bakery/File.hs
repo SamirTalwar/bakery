@@ -1,4 +1,4 @@
-module Bakery.File (file, shell) where
+module Bakery.File (file) where
 
 import Bakery.Bakeable
 import Bakery.Run
@@ -15,17 +15,13 @@ instance Show File where
   show (File path) = path
 
 instance Bakeable File where
-  data Recipe File = FileRecipe File (() #> ())
-    deriving stock (Show)
-  deriveInputs (FileRecipe _ recipe) = deriveShellInputs recipe
+  type Recipe File = OutputPath -> () #> ()
+  deriveInputs _ recipe = deriveShellInputs (recipe UnknownOutputPath)
   exists (File path) = Directory.doesPathExist path
-  follow (FileRecipe f recipe) = evaluateShell recipe $> f
+  follow f@(File path) recipe = evaluateShell (recipe (KnownOutputPath path)) $> f
 
 instance InShell File where
   inShell (File path) = path
 
 file :: String -> File
 file path = File (fromString path)
-
-shell :: (forall a. InShell a => a -> () #> ()) -> File -> Recipe File
-shell runnable f = FileRecipe f (runnable f)

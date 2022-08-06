@@ -11,13 +11,13 @@ module Bakery.Bakeable
 where
 
 import Control.Monad (ap)
-import Data.Typeable (Typeable, cast)
+import Data.Typeable (Proxy (..), Typeable, cast)
 
-class (Eq a, Show a, Typeable a, Show (Recipe a)) => Bakeable a where
-  data Recipe a
-  deriveInputs :: Recipe a -> [Input]
+class (Eq a, Show a, Typeable a) => Bakeable a where
+  type Recipe a
+  deriveInputs :: Proxy a -> Recipe a -> [Input]
   exists :: a -> IO Bool
-  follow :: Recipe a -> IO a
+  follow :: a -> Recipe a -> IO a
 
 class Bakeable a => InShell a where
   inShell :: a -> String
@@ -71,7 +71,7 @@ instance Show Output where
 
 deriveOutputs :: forall a. Bake a -> [Output]
 deriveOutputs (Value _) = []
-deriveOutputs (Recipe out r) = [Output out (deriveInputs r) r]
+deriveOutputs (Recipe out r) = [Output out (deriveInputs (Proxy :: Proxy a) r) r]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
 -- See above.
 deriveOutputs (Map _ x) = [Output out inputs undefined | Output out inputs _ <- deriveOutputs x]

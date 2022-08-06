@@ -11,6 +11,7 @@ module Bakery.Run
 
     -- * Evaluation
     type (#>),
+    OutputPath (..),
     deriveShellInputs,
     evaluateShell,
   )
@@ -32,8 +33,8 @@ data i #> o where
   NullStdIn :: () #> StdIn
   NullStdOut :: StdOut #> ()
   Run :: NonEmpty Arg -> StdIn #> StdOut
-  Read :: Path -> () #> StdIn
-  Write :: Path -> StdOut #> ()
+  Read :: InputPath -> () #> StdIn
+  Write :: OutputPath -> StdOut #> ()
   Compose :: a #> b -> b #> c -> a #> c
 
 deriving stock instance Show (i #> o)
@@ -42,10 +43,16 @@ newtype StdIn = StdIn Text
 
 newtype StdOut = StdOut Text
 
-data Path where
-  InputPath :: forall a. InShell a => a -> Path
+data InputPath where
+  InputPath :: forall a. InShell a => a -> InputPath
 
-deriving stock instance Show Path
+deriving stock instance Show InputPath
+
+data OutputPath where
+  KnownOutputPath :: FilePath -> OutputPath
+  UnknownOutputPath :: OutputPath
+
+deriving stock instance Show OutputPath
 
 nullStdIn :: () #> StdIn
 nullStdIn = NullStdIn
@@ -56,8 +63,8 @@ nullStdOut = NullStdOut
 readF :: InShell a => a -> () #> StdIn
 readF = Read . InputPath
 
-writeF :: InShell a => a -> StdOut #> ()
-writeF = Write . InputPath
+writeF :: OutputPath -> StdOut #> ()
+writeF = Write
 
 infixr 5 |>
 
@@ -103,7 +110,7 @@ deriveShellInputs (Run args) =
     StringArg _ -> []
     InputArg arg -> [Input arg]
 deriveShellInputs (Read (InputPath input)) = [Input input]
-deriveShellInputs (Write (InputPath input)) = [Input input]
+deriveShellInputs (Write _) = []
 deriveShellInputs (Compose a b) = deriveShellInputs a <> deriveShellInputs b
 
 evaluateShell :: () #> () -> IO ()
@@ -127,7 +134,9 @@ evaluateShell' (Run (cmd :| args)) (StdIn stdin) =
         Text.IO.hGetContents hStdout
 evaluateShell' (Read (InputPath input)) () =
   StdIn <$> Text.IO.readFile (inShell input)
-evaluateShell' (Write (InputPath input)) (StdOut text) =
-  Text.IO.writeFile (inShell input) text
+evaluateShell' (Write (KnownOutputPath path)) (StdOut text) =
+  Text.IO.writeFile path text
+evaluateShell' (Write UnknownOutputPath) (StdOut _) =
+  fail "INTERNAL ERROR: Cannot write to an unknown path."
 evaluateShell' (Compose a b) i =
   evaluateShell' a i >>= evaluateShell' b

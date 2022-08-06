@@ -52,8 +52,9 @@ bake' thing args = do
 
     required :: [Output] -> [Output] -> Baking [Output]
     required allOutputs targetOutputs = do
-      requiredTargets <- forM targetOutputs $ \(Output _ inputs _) ->
-        mapM (\(Input input) -> findTarget allOutputs input) inputs
+      requiredTargets <- forM targetOutputs $ \targetOutput@(Output _ inputs _) -> do
+        dependencies <- mapM (\(Input input) -> findTarget allOutputs input) inputs
+        pure $ dependencies ++ [targetOutput]
       pure . List.nub $ concat requiredTargets
 
     findTarget :: MonadFail m => forall a. (Eq a, Show a, Typeable a) => [Output] -> a -> m Output
@@ -70,10 +71,10 @@ bake' thing args = do
     bakeOutput :: Output -> Baking ()
     bakeOutput (Output out _ r) = do
       logText ("Baking " <> show out <> "...")
-      liftIO (follow r) $> ()
+      liftIO (follow out r) $> ()
 
-recipe :: Bakeable a => a -> (a -> Recipe a) -> Bake a
-recipe output produce = Recipe output $ produce output
+recipe :: Bakeable a => a -> Recipe a -> Bake a
+recipe = Recipe
 
 logText :: String -> Baking ()
 logText text = do
