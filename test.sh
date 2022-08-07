@@ -5,8 +5,27 @@
 set -e
 set -u
 set -o pipefail
-set -x
 
+haskell_packages=(lib examples)
+haskell_files=(lib/**/*.hs examples/**/*.hs)
+
+function note {
+  echo '+' "$@"
+}
+
+for package in "${haskell_packages[@]}"; do
+  note "hpack ${package}"
+  hpack "$package"
+done
+
+note 'nix build .#bake'
 nix build '.#bake' --out-link out/bake
+
+note 'smoke examples/smoke.yaml'
 nix shell '.#bake' --command smoke examples/smoke.yaml
-hlint lib examples
+
+note 'hlint'
+hlint "${haskell_files[@]}"
+
+note 'ormolu'
+ormolu --mode=check "${haskell_files[@]}"
