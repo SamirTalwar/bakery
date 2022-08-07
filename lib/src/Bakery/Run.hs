@@ -21,7 +21,7 @@ module Bakery.Run
   )
 where
 
-import Bakery.Bakeable (Input (..))
+import Bakery.Bakeable (Inputs)
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
@@ -50,7 +50,7 @@ newtype StdOut where
   StdOut :: Text -> StdOut
 
 data InputPath where
-  InputPath :: [Input] -> FilePath -> InputPath
+  InputPath :: Inputs -> FilePath -> InputPath
 
 deriving stock instance Show InputPath
 
@@ -116,7 +116,7 @@ instance (Argument a, RunType r) => RunType (a -> r) where
 instance RunType (StdIn #> StdOut) where
   run' args = Run (NonEmpty.reverse args)
 
-deriveShellInputs :: i #> o -> [Input]
+deriveShellInputs :: i #> o -> Inputs
 deriveShellInputs NullStdIn = []
 deriveShellInputs NullStdOut = []
 deriveShellInputs (Run args) =

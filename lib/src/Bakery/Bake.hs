@@ -4,7 +4,7 @@ module Bakery.Bake
   )
 where
 
-import Bakery.Bakeable (Bake (..), Bakeable (..), Input (..), Output (..), deriveOutputs)
+import Bakery.Bakeable (Bake (..), Bakeable (..), Input (..), Output (..), Outputs, deriveOutputs)
 import Bakery.File qualified
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
@@ -42,7 +42,7 @@ bake' thing args = do
       targetOutputs <- mapM (findTarget outputs . Bakery.File.file) args
       bakeOutputs outputs targetOutputs
   where
-    bakeOutputs :: [Output] -> [Output] -> Baking ()
+    bakeOutputs :: Outputs -> Outputs -> Baking ()
     bakeOutputs allOutputs targetOutputs = do
       requiredOutputs <- required allOutputs targetOutputs
       logText "Plan:"
@@ -50,14 +50,14 @@ bake' thing args = do
       logText ""
       mapM_ bakeOutput requiredOutputs
 
-    required :: [Output] -> [Output] -> Baking [Output]
+    required :: Outputs -> Outputs -> Baking Outputs
     required allOutputs targetOutputs = do
       requiredTargets <- forM targetOutputs $ \targetOutput@(Output _ inputs _) -> do
         dependencies <- mapM (\(Input input) -> findTarget allOutputs input) inputs
         pure $ dependencies ++ [targetOutput]
       pure . List.nub $ concat requiredTargets
 
-    findTarget :: MonadFail m => forall a. (Eq a, Show a, Typeable a) => [Output] -> a -> m Output
+    findTarget :: MonadFail m => forall a. (Eq a, Show a, Typeable a) => Outputs -> a -> m Output
     findTarget outputs target =
       let targetOutput = List.find (isTarget target) outputs
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput

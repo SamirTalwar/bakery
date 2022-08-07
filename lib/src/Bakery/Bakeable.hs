@@ -4,7 +4,9 @@ module Bakery.Bakeable
   ( Bakeable (..),
     Bake (..),
     Input (..),
+    Inputs,
     Output (..),
+    Outputs,
     deriveOutputs,
   )
 where
@@ -14,7 +16,7 @@ import Data.Typeable (Proxy (..), Typeable, cast)
 
 class (Eq a, Show a, Typeable a) => Bakeable a where
   type Recipe a
-  deriveInputs :: Proxy a -> Recipe a -> [Input]
+  deriveInputs :: Proxy a -> Recipe a -> Inputs
   exists :: a -> IO Bool
   follow :: a -> Recipe a -> IO a
 
@@ -53,8 +55,10 @@ data Input where
 instance Show Input where
   show (Input x) = show x
 
+type Inputs = [Input]
+
 data Output where
-  Output :: forall a. Bakeable a => a -> [Input] -> Recipe a -> Output
+  Output :: forall a. Bakeable a => a -> Inputs -> Recipe a -> Output
 
 instance Eq Output where
   Output x _ _ == Output y _ _ =
@@ -65,7 +69,9 @@ instance Eq Output where
 instance Show Output where
   show (Output x inputs _) = show x <> " <- " <> show inputs
 
-deriveOutputs :: forall a. Bake a -> [Output]
+type Outputs = [Output]
+
+deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
 deriveOutputs (Recipe out r) = [Output out (deriveInputs (Proxy :: Proxy a) r) r]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
