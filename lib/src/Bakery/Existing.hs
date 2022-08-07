@@ -1,4 +1,4 @@
-module Bakery.Existing (existing) where
+module Bakery.Existing (Existing, existing) where
 
 import Bakery.Bakeable (Bake (Recipe), Bakeable (..), Input (..))
 import Bakery.Run (InputPath (..), Path (..))

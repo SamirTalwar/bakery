@@ -1,7 +1,4 @@
-module Bakery.Exec
-  ( exec,
-  )
-where
+module Bakery.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Run (StdIn (..), StdOut (..), deriveShellInputs, evaluateShell, type (#>))
