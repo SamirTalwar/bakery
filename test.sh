@@ -9,3 +9,4 @@ set -x
 
 nix build '.#bake' --out-link out/bake
 nix shell '.#bake' --command smoke examples/smoke.yaml
+hlint lib examples

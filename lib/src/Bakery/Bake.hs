@@ -16,7 +16,7 @@ import Data.Typeable (Typeable, cast)
 import System.Environment (getArgs, lookupEnv)
 import System.IO (Handle, hPutStrLn, stderr)
 
-data Env = Env {logger :: Maybe Handle}
+newtype Env = Env {logger :: Maybe Handle}
 
 type Baking a = ReaderT Env IO a
 
@@ -76,6 +76,7 @@ bake' thing args = do
 recipe :: Bakeable a => a -> Recipe a -> Bake a
 recipe = Recipe
 
+{-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()
 logText text = do
   handle <- Reader.asks logger
