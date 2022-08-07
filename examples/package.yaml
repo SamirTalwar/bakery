@@ -9,6 +9,7 @@ github: SamirTalwar/bakery
 
 default-extensions:
   - BlockArguments
+  - ExtendedDefaultRules
   - ImportQualifiedPost
 
 dependencies:
@@ -20,6 +21,10 @@ executables:
     main: bake.hs
     source-dirs:
       - echo
+  exec:
+    main: bake.hs
+    source-dirs:
+      - exec
   two:
     main: bake.hs
     source-dirs:

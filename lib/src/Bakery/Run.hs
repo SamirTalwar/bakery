@@ -11,6 +11,8 @@ module Bakery.Run
 
     -- * Evaluation
     type (#>),
+    StdIn (..),
+    StdOut (..),
     Path (..),
     InputPath (..),
     OutputPath (..),
@@ -80,6 +82,7 @@ infixr 5 |>
 
 data Arg where
   StringArg :: String -> Arg
+  IntegerArg :: Integer -> Arg
   PathArg :: InputPath -> Arg
 
 deriving stock instance Show Arg
@@ -90,24 +93,28 @@ class Argument a where
 instance Argument String where
   toArg = StringArg
 
+instance Argument Integer where
+  toArg = IntegerArg
+
 instance Argument InputPath where
   toArg = PathArg
 
 fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
+fromArg (IntegerArg arg) = show arg
 fromArg (PathArg (InputPath _ arg)) = arg
 
-class RunOutput r where
+run :: (Argument a, RunType r) => a -> r
+run arg = run' (NonEmpty.singleton (toArg arg))
+
+class RunType r where
   run' :: NonEmpty Arg -> r
 
-instance (Argument a, RunOutput r) => RunOutput (a -> r) where
+instance (Argument a, RunType r) => RunType (a -> r) where
   run' args arg = run' (toArg arg `NonEmpty.cons` args)
 
-instance RunOutput (StdIn #> StdOut) where
+instance RunType (StdIn #> StdOut) where
   run' args = Run (NonEmpty.reverse args)
-
-run :: (Argument a, RunOutput r) => a -> r
-run arg = run' (NonEmpty.singleton (toArg arg))
 
 deriveShellInputs :: i #> o -> [Input]
 deriveShellInputs NullStdIn = []
@@ -115,35 +122,34 @@ deriveShellInputs NullStdOut = []
 deriveShellInputs (Run args) =
   toList args >>= \case
     StringArg _ -> []
+    IntegerArg _ -> []
     PathArg (InputPath inputs _) -> inputs
 deriveShellInputs (Read (InputPath inputs _)) = inputs
 deriveShellInputs (Write _) = []
 deriveShellInputs (Compose a b) = deriveShellInputs a <> deriveShellInputs b
 
-evaluateShell :: () #> () -> IO ()
-evaluateShell program = evaluateShell' program ()
-
-evaluateShell' :: a #> b -> a -> IO b
-evaluateShell' NullStdIn () =
+-- The argument order is important, so that 'a' is constrained by 'a #> b'.
+evaluateShell :: a #> b -> a -> IO b
+evaluateShell NullStdIn () =
   pure $ StdIn Text.empty
-evaluateShell' NullStdOut (StdOut _) =
+evaluateShell NullStdOut (StdOut _) =
   pure ()
-evaluateShell' (Run (cmd :| args)) (StdIn stdin) =
+evaluateShell (Run (cmd :| args)) (StdIn stdin) =
   let config =
         Process.setStdin Process.createPipe $
           Process.setStdout Process.createPipe $
             Process.proc (fromArg cmd) (map fromArg args)
-   in StdOut <$> Process.withProcessWait config \process -> do
+   in StdOut <$> Process.withProcessWait_ config \process -> do
         let hStdin = Process.getStdin process
             hStdout = Process.getStdout process
         Text.IO.hPutStr hStdin stdin
         hClose hStdin
         Text.IO.hGetContents hStdout
-evaluateShell' (Read (InputPath _ path)) () =
+evaluateShell (Read (InputPath _ path)) () =
   StdIn <$> Text.IO.readFile path
-evaluateShell' (Write (KnownOutputPath path)) (StdOut text) =
+evaluateShell (Write (KnownOutputPath path)) (StdOut text) =
   Text.IO.writeFile path text
-evaluateShell' (Write UnknownOutputPath) (StdOut _) =
+evaluateShell (Write UnknownOutputPath) (StdOut _) =
   fail "INTERNAL ERROR: Cannot write to an unknown path."
-evaluateShell' (Compose a b) i =
-  evaluateShell' a i >>= evaluateShell' b
+evaluateShell (Compose a b) i =
+  evaluateShell a i >>= evaluateShell b
