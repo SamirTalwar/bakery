@@ -2,7 +2,6 @@
 
 module Bakery.Bakeable
   ( Bakeable (..),
-    InShell (..),
     Bake (..),
     Input (..),
     Output (..),
@@ -18,9 +17,6 @@ class (Eq a, Show a, Typeable a) => Bakeable a where
   deriveInputs :: Proxy a -> Recipe a -> [Input]
   exists :: a -> IO Bool
   follow :: a -> Recipe a -> IO a
-
-class Bakeable a => InShell a where
-  inShell :: a -> String
 
 data Bake a where
   Value :: a -> Bake a

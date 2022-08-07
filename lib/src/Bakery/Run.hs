@@ -11,13 +11,15 @@ module Bakery.Run
 
     -- * Evaluation
     type (#>),
+    Path (..),
+    InputPath (..),
     OutputPath (..),
     deriveShellInputs,
     evaluateShell,
   )
 where
 
-import Bakery.Bakeable (InShell (..), Input (..))
+import Bakery.Bakeable (Input (..))
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
@@ -39,12 +41,14 @@ data i #> o where
 
 deriving stock instance Show (i #> o)
 
-newtype StdIn = StdIn Text
+newtype StdIn where
+  StdIn :: Text -> StdIn
 
-newtype StdOut = StdOut Text
+newtype StdOut where
+  StdOut :: Text -> StdOut
 
 data InputPath where
-  InputPath :: forall a. InShell a => a -> InputPath
+  InputPath :: [Input] -> FilePath -> InputPath
 
 deriving stock instance Show InputPath
 
@@ -54,14 +58,17 @@ data OutputPath where
 
 deriving stock instance Show OutputPath
 
+class Path a where
+  toInputPath :: a -> InputPath
+
 nullStdIn :: () #> StdIn
 nullStdIn = NullStdIn
 
 nullStdOut :: StdOut #> ()
 nullStdOut = NullStdOut
 
-readF :: InShell a => a -> () #> StdIn
-readF = Read . InputPath
+readF :: Path a => a -> () #> StdIn
+readF = Read . toInputPath
 
 writeF :: OutputPath -> StdOut #> ()
 writeF = Write
@@ -73,22 +80,22 @@ infixr 5 |>
 
 data Arg where
   StringArg :: String -> Arg
-  InputArg :: InShell a => a -> Arg
+  PathArg :: InputPath -> Arg
 
 deriving stock instance Show Arg
 
 class Argument a where
   toArg :: a -> Arg
 
-instance {-# OVERLAPPING #-} Argument String where
+instance Argument String where
   toArg = StringArg
 
-instance {-# OVERLAPPABLE #-} InShell a => Argument a where
-  toArg = InputArg
+instance Argument InputPath where
+  toArg = PathArg
 
 fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
-fromArg (InputArg arg) = inShell arg
+fromArg (PathArg (InputPath _ arg)) = arg
 
 class RunOutput r where
   run' :: NonEmpty Arg -> r
@@ -108,8 +115,8 @@ deriveShellInputs NullStdOut = []
 deriveShellInputs (Run args) =
   toList args >>= \case
     StringArg _ -> []
-    InputArg arg -> [Input arg]
-deriveShellInputs (Read (InputPath input)) = [Input input]
+    PathArg (InputPath inputs _) -> inputs
+deriveShellInputs (Read (InputPath inputs _)) = inputs
 deriveShellInputs (Write _) = []
 deriveShellInputs (Compose a b) = deriveShellInputs a <> deriveShellInputs b
 
@@ -132,8 +139,8 @@ evaluateShell' (Run (cmd :| args)) (StdIn stdin) =
         Text.IO.hPutStr hStdin stdin
         hClose hStdin
         Text.IO.hGetContents hStdout
-evaluateShell' (Read (InputPath input)) () =
-  StdIn <$> Text.IO.readFile (inShell input)
+evaluateShell' (Read (InputPath _ path)) () =
+  StdIn <$> Text.IO.readFile path
 evaluateShell' (Write (KnownOutputPath path)) (StdOut text) =
   Text.IO.writeFile path text
 evaluateShell' (Write UnknownOutputPath) (StdOut _) =

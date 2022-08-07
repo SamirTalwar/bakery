@@ -1,6 +1,7 @@
 module Bakery.Existing (existing) where
 
-import Bakery.Bakeable (Bake (Recipe), Bakeable (..), InShell (..))
+import Bakery.Bakeable (Bake (Recipe), Bakeable (..), Input (..))
+import Bakery.Run (InputPath (..), Path (..))
 import Data.Typeable (Typeable)
 
 newtype Existing a = Existing a
@@ -18,5 +19,7 @@ instance Bakeable a => Bakeable (Existing a) where
       True -> pure target
       False -> fail ("Expected " <> show recipe <> " to exist.")
 
-instance InShell a => InShell (Existing a) where
-  inShell (Existing x) = inShell x
+instance (Path a, Bakeable a) => Path (Existing a) where
+  toInputPath self@(Existing x) =
+    let InputPath _ path = toInputPath x
+     in InputPath [Input self] path

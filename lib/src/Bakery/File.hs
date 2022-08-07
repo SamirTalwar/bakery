@@ -20,8 +20,8 @@ instance Bakeable File where
   exists (File path) = Directory.doesPathExist path
   follow f@(File path) recipe = evaluateShell (recipe (KnownOutputPath path)) $> f
 
-instance InShell File where
-  inShell (File path) = path
+instance Path File where
+  toInputPath f@(File path) = InputPath [Input f] path
 
 file :: String -> File
 file path = File (fromString path)
