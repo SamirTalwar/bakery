@@ -12,7 +12,7 @@ import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import Control.Monad.Trans.Reader qualified as Reader
 import Data.Functor (($>))
 import Data.List qualified as List
-import Data.Typeable (Typeable, cast)
+import Data.Typeable (Proxy (..), Typeable, cast)
 import System.Environment (getArgs, lookupEnv)
 import System.IO (Handle, hPutStrLn, stderr)
 
@@ -69,12 +69,13 @@ bake' thing args = do
         _ -> False
 
     bakeOutput :: Output -> Baking ()
-    bakeOutput (Output out _ r) = do
+    bakeOutput (Output out _ action) = do
       logText ("Baking " <> show out <> "...")
-      liftIO (follow out r) $> ()
+      liftIO action $> ()
 
-recipe :: Bakeable a => a -> Recipe a -> Bake a
-recipe = Recipe
+recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
+recipe target recipe' =
+  Recipe target (deriveInputs (Proxy :: Proxy a) recipe') (follow recipe' target)
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()

@@ -15,7 +15,7 @@ instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
   deriveInputs _ = deriveShellInputs
   exists _ = pure False
-  follow target recipe = do
+  follow recipe target = do
     StdOut stdout <- evaluateShell recipe (StdIn "")
     Text.IO.putStr stdout
     pure target
