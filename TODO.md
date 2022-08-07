@@ -4,10 +4,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 
 ## Now-ish
 
-### Testing
-
-- Add tests, probably with [Smoke][].
-
 ### Abstract nonsense
 
 - Figure out how to make `Bake` a lawful functor.
