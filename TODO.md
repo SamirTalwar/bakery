@@ -15,7 +15,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 
 ### Program semantics
 
-- Add a shell script that uses `runhaskell` to invoke a _bake.hs_ file.
 - Run within the same directory as the _bake.hs_ file.
 - Invoke `file` tasks with a `file:` prefix.
 - Invoke `exec` tasks by name.
