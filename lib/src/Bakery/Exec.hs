@@ -13,6 +13,7 @@ exec = Exec
 
 instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
+  identifier (Exec name) = Id "exec" name
   deriveInputs _ = deriveShellInputs
   exists _ = pure False
   follow recipe target = do

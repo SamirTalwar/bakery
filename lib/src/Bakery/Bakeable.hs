@@ -3,6 +3,7 @@
 module Bakery.Bakeable
   ( Bakeable (..),
     Bake (..),
+    Id (..),
     Input (..),
     Inputs,
     Output (..),
@@ -12,17 +13,18 @@ module Bakery.Bakeable
 where
 
 import Control.Monad (ap)
-import Data.Typeable (Proxy (..), Typeable, cast)
+import Data.Typeable (Proxy (..), Typeable)
 
 class (Eq a, Show a, Typeable a) => Bakeable a where
   type Recipe a
+  identifier :: a -> Id
   deriveInputs :: Proxy a -> Recipe a -> Inputs
   exists :: a -> IO Bool
   follow :: Recipe a -> a -> IO a
 
 data Bake a where
   Value :: a -> Bake a
-  Recipe :: Bakeable a => a -> Inputs -> IO a -> Bake a
+  Recipe :: Id -> a -> Inputs -> IO a -> Bake a
   Both :: Bake a -> Bake b -> Bake b
   Map :: (a -> b) -> Bake a -> Bake b
 
@@ -35,7 +37,7 @@ instance Functor Bake where
   --
   -- We can potentially get around this by storing a function and not
   -- a 'Recipe', but that seems a little /too/ flexible.
-  fmap f r@(Recipe _ _ _) = Map f r
+  fmap f r@(Recipe _ _ _ _) = Map f r
   fmap f (Both x y) = Both x (fmap f y)
   fmap f (Map g x) = Map (f . g) x
 
@@ -45,9 +47,15 @@ instance Applicative Bake where
 
 instance Monad Bake where
   Value x >>= f = f x
-  r@(Recipe x _ _) >>= f = Both r (f x)
+  r@(Recipe _ x _ _) >>= f = Both r (f x)
   Both x y >>= f = Both x (y >>= f)
   b@(Map _ _) >>= f = Both b (b >>= f)
+
+data Id = Id {idType :: String, idTarget :: String}
+  deriving stock (Eq)
+
+instance Show Id where
+  show Id {idType, idTarget} = idType <> ":" <> idTarget
 
 data Input where
   Input :: forall a. Bakeable a => a -> Input
@@ -58,22 +66,20 @@ instance Show Input where
 type Inputs = [Input]
 
 data Output where
-  Output :: forall a. Bakeable a => a -> Inputs -> IO a -> Output
+  Output :: Id -> a -> Inputs -> IO a -> Output
 
 instance Eq Output where
-  Output x _ _ == Output y _ _ =
-    case cast x of
-      Just x' -> x' == y
-      Nothing -> False
+  Output x _ _ _ == Output y _ _ _ =
+    x == y
 
 instance Show Output where
-  show (Output x inputs _) = show x <> " <- " <> show inputs
+  show (Output outputId _ inputs _) = show outputId <> " <- " <> show inputs
 
 type Outputs = [Output]
 
 deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
-deriveOutputs (Recipe out inputs r) = [Output out inputs r]
+deriveOutputs (Recipe recipeId out inputs r) = [Output recipeId out inputs r]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
 -- See above.
-deriveOutputs (Map _ x) = [Output out inputs undefined | Output out inputs _ <- deriveOutputs x]
+deriveOutputs (Map _ x) = [Output outputId out inputs undefined | Output outputId out inputs _ <- deriveOutputs x]

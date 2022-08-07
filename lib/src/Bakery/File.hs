@@ -16,6 +16,7 @@ instance Show File where
 
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()
+  identifier (File path) = Id "file" path
   deriveInputs _ recipe = deriveShellInputs (recipe UnknownOutputPath)
   exists (File path) = Directory.doesPathExist path
   follow recipe f@(File path) = evaluateShell (recipe (KnownOutputPath path)) () $> f
