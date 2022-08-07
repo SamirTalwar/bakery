@@ -4,3 +4,6 @@
 # Haskell
 dist-newstyle
 *.cabal
+
+# Nix
+/out

@@ -2,15 +2,26 @@
   description = "The Bakery";
 
   inputs = {
-    flake-utils.url = github:numtide/flake-utils;
+    nixpkgs = {
+      url = github:NixOS/nixpkgs/master;
+    };
 
-    nixpkgs.url = github:NixOS/nixpkgs/master;
+    flake-utils = {
+      url = github:numtide/flake-utils;
+    };
+
+    smoke = {
+      url = github:SamirTalwar/smoke/99770bfd;
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     { self
-    , flake-utils
     , nixpkgs
+    , flake-utils
+    , smoke
     }:
     let
       name = "bakery";
@@ -65,6 +76,7 @@
           haskellPackages.hlint
           haskellPackages.hpack
           haskellPackages.ormolu
+          smoke.outputs.packages."${system}".default
         ];
       };
     }
