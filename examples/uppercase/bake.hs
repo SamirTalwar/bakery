@@ -1,3 +1,5 @@
+#!/usr/bin/env bake
+
 import Bakery
 
 main = bake do
