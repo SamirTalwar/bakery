@@ -4,12 +4,13 @@ module Bakery.Bake
   )
 where
 
-import Bakery.Bakeable (Bake (..), Bakeable (..), Input (..), Output (..), Outputs, deriveOutputs)
+import Bakery.Bakeable (Bake (..), Bakeable (..), Identifiable (..), Input (..), Output (..), Outputs, SomeInput (..), SomeOutput (..), deriveOutputs)
 import Bakery.File qualified
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import Control.Monad.Trans.Reader qualified as Reader
+import Data.Function (on)
 import Data.Functor (($>))
 import Data.List qualified as List
 import Data.Typeable (Proxy (..))
@@ -46,28 +47,30 @@ bake' thing args = do
     bakeOutputs allOutputs targetOutputs = do
       requiredOutputs <- required allOutputs targetOutputs
       logText "Plan:"
-      forM_ requiredOutputs \(Output outputId _ _ _) -> logValue outputId
+      forM_ requiredOutputs (logValue . identifier)
       logText ""
       mapM_ bakeOutput requiredOutputs
 
     required :: Outputs -> Outputs -> Baking Outputs
     required allOutputs targetOutputs = do
-      requiredTargets <- forM targetOutputs $ \targetOutput@(Output _ _ inputs _) -> do
-        dependencies <- mapM (\(Input input) -> findTarget allOutputs input) inputs
+      requiredTargets <- forM targetOutputs $ \targetOutput@(SomeOutput (Output _ _ inputs _)) -> do
+        dependencies <- mapM (\(SomeInput (Input input)) -> findTarget allOutputs input) inputs
         pure $ dependencies ++ [targetOutput]
-      pure . List.nub $ concat requiredTargets
+      pure . List.nubBy equalById $ concat requiredTargets
+      where
+        equalById = (==) `on` identifier
 
-    findTarget :: (MonadFail m, Bakeable a) => Outputs -> a -> m Output
+    findTarget :: (MonadFail m, Bakeable a) => Outputs -> a -> m SomeOutput
     findTarget outputs target =
       let targetOutput = List.find (isTarget target) outputs
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput
 
-    isTarget :: Bakeable a => a -> Output -> Bool
-    isTarget target (Output outputId _ _ _) =
-      identifier target == outputId
+    isTarget :: Bakeable a => a -> SomeOutput -> Bool
+    isTarget target output =
+      identifier target == identifier output
 
-    bakeOutput :: Output -> Baking ()
-    bakeOutput (Output outputId _ _ action) = do
+    bakeOutput :: SomeOutput -> Baking ()
+    bakeOutput (SomeOutput (Output outputId _ _ action)) = do
       logText ("Baking " <> show outputId <> "...")
       liftIO action $> ()
 

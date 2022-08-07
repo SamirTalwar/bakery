@@ -11,9 +11,11 @@ newtype Exec = Exec String
 exec :: String -> Exec
 exec = Exec
 
+instance Identifiable Exec where
+  identifier (Exec name) = Id "exec" name
+
 instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
-  identifier (Exec name) = Id "exec" name
   deriveInputs _ = deriveShellInputs
   exists _ = pure False
   follow recipe target = do

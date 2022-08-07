@@ -1,6 +1,6 @@
 module Bakery.Existing (Existing, existing) where
 
-import Bakery.Bakeable (Bake (Recipe), Bakeable (..), Input (..))
+import Bakery.Bakeable
 import Bakery.Run (InputPath (..), Path (..))
 import Data.Typeable (Typeable)
 
@@ -10,9 +10,11 @@ newtype Existing a = Existing a
 existing :: Bakeable a => a -> Bake (Existing a)
 existing x = Recipe (identifier x) (Existing x) [] (follow x (Existing x))
 
+instance Identifiable a => Identifiable (Existing a) where
+  identifier (Existing x) = identifier x
+
 instance Bakeable a => Bakeable (Existing a) where
   type Recipe (Existing a) = a
-  identifier (Existing x) = identifier x
   deriveInputs _ _ = []
   exists (Existing x) = exists x
   follow recipe target =
@@ -23,4 +25,4 @@ instance Bakeable a => Bakeable (Existing a) where
 instance (Path a, Bakeable a) => Path (Existing a) where
   toInputPath self@(Existing x) =
     let InputPath _ path = toInputPath x
-     in InputPath [Input self] path
+     in InputPath [SomeInput (Input self)] path

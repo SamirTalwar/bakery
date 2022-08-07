@@ -4,20 +4,25 @@ module Bakery.Bakeable
   ( Bakeable (..),
     Bake (..),
     Id (..),
+    Identifiable (..),
     Input (..),
     Inputs,
+    SomeInput (..),
     Output (..),
     Outputs,
+    SomeOutput (..),
     deriveOutputs,
   )
 where
 
 import Control.Monad (ap)
-import Data.Typeable (Proxy (..), Typeable)
+import Data.Typeable (Proxy (..))
 
-class (Eq a, Show a, Typeable a) => Bakeable a where
-  type Recipe a
+class Identifiable a where
   identifier :: a -> Id
+
+class (Eq a, Show a, Identifiable a) => Bakeable a where
+  type Recipe a
   deriveInputs :: Proxy a -> Recipe a -> Inputs
   exists :: a -> IO Bool
   follow :: Recipe a -> a -> IO a
@@ -44,27 +49,39 @@ data Id = Id {idType :: String, idTarget :: String}
 instance Show Id where
   show Id {idType, idTarget} = idType <> ":" <> idTarget
 
-data Input where
-  Input :: forall a. Bakeable a => a -> Input
+data Input a where
+  Input :: forall a. Bakeable a => a -> Input a
 
-instance Show Input where
+data SomeInput = forall a. SomeInput (Input a)
+
+instance Show (Input a) where
   show (Input x) = show x
 
-type Inputs = [Input]
+instance Show SomeInput where
+  show (SomeInput x) = show x
 
-data Output where
-  Output :: Id -> a -> Inputs -> IO a -> Output
+type Inputs = [SomeInput]
 
-instance Eq Output where
-  Output x _ _ _ == Output y _ _ _ =
-    x == y
+data Output a where
+  Output :: Id -> a -> Inputs -> IO a -> Output a
 
-instance Show Output where
+data SomeOutput = forall a. SomeOutput (Output a)
+
+instance Show (Output a) where
   show (Output outputId _ inputs _) = show outputId <> " <- " <> show inputs
 
-type Outputs = [Output]
+instance Show SomeOutput where
+  show (SomeOutput x) = show x
+
+instance Identifiable (Output a) where
+  identifier (Output outputId _ _ _) = outputId
+
+instance Identifiable SomeOutput where
+  identifier (SomeOutput x) = identifier x
+
+type Outputs = [SomeOutput]
 
 deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
-deriveOutputs (Recipe recipeId out inputs r) = [Output recipeId out inputs r]
+deriveOutputs (Recipe recipeId out inputs r) = [SomeOutput (Output recipeId out inputs r)]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y
