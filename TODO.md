@@ -6,7 +6,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 
 ### Abstract nonsense
 
-- Figure out how to make `Bake` a lawful functor.
 - Model the shell as [stream processors][].
 
 ### Program semantics
