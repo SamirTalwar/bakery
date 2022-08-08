@@ -3,7 +3,10 @@ module Bakery.File (File, file) where
 import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell
+import Bakery.Shell.AST (type (#>))
+import Bakery.Shell.Evaluate qualified as Shell
+import Bakery.Shell.Inputs qualified as Shell
+import Bakery.Shell.Path (InputPath (..), OutputPath (..), Path (..))
 import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Typeable (Typeable)
@@ -21,9 +24,9 @@ instance Identifiable File where
 
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()
-  deriveInputs _ recipe = deriveShellInputs (recipe UnknownOutputPath)
+  deriveInputs _ recipe = Shell.deriveInputs (recipe UnknownOutputPath)
   exists (File path) = Directory.doesPathExist path
-  follow recipe f@(File path) = evaluateShell (recipe (KnownOutputPath path)) () $> f
+  follow recipe f@(File path) = Shell.evaluate (recipe (KnownOutputPath path)) () $> f
 
 instance Path File where
   toInputPath f@(File path) = InputPath [SomeInput (Input f)] path

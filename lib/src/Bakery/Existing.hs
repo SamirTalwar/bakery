@@ -3,7 +3,7 @@ module Bakery.Existing (Existing, existing) where
 import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell (InputPath (..), Path (..))
+import Bakery.Shell.Path (InputPath (..), Path (..))
 import Data.Typeable (Typeable)
 
 newtype Existing a = Existing a

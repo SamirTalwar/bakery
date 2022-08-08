@@ -2,7 +2,10 @@ module Bakery.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
-import Bakery.Shell
+import Bakery.Shell.AST (type (#>))
+import Bakery.Shell.Evaluate qualified as Shell
+import Bakery.Shell.Inputs qualified as Shell
+import Bakery.Shell.Pipe (StdIn (..), StdOut (..))
 import Data.Text.IO qualified as Text.IO
 import Data.Typeable (Typeable)
 
@@ -17,9 +20,9 @@ instance Identifiable Exec where
 
 instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
-  deriveInputs _ = deriveShellInputs
+  deriveInputs _ = Shell.deriveInputs
   exists _ = pure False
   follow recipe target = do
-    StdOut stdout <- evaluateShell recipe (StdIn mempty)
+    StdOut stdout <- Shell.evaluate recipe (StdIn mempty)
     Text.IO.putStr stdout
     pure target
