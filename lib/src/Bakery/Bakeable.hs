@@ -3,12 +3,6 @@
 module Bakery.Bakeable
   ( Bakeable (..),
     Bake (..),
-    Input (..),
-    Inputs,
-    SomeInput (..),
-    Output (..),
-    Outputs,
-    SomeOutput (..),
     deriveOutputs,
   )
 where

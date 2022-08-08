@@ -7,6 +7,8 @@ where
 import Bakery.Bakeable
 import Bakery.File qualified
 import Bakery.Identifier
+import Bakery.Input
+import Bakery.Output
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
