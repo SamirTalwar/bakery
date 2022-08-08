@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+exec runhaskell \
+  -XBlockArguments \
+  -XExtendedDefaultRules \
+  -XImportQualifiedPost \
+  "$@"

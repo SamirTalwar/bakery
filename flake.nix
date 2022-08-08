@@ -47,13 +47,23 @@
         bakery-core = packages.core;
       };
       packages.ghcWithLib = haskellPackages.ghcWithPackages (_: [ packages.lib ]);
-      packages.bake = pkgs.writeShellScriptBin "bake" ''
-        exec ${packages.ghcWithLib}/bin/runhaskell \
-          -XBlockArguments \
-          -XExtendedDefaultRules \
-          -XImportQualifiedPost \
-          "$@"
-      '';
+      packages.bake = pkgs.stdenv.mkDerivation {
+        name = "bake";
+        src = ./.;
+        buildPhase = ''
+          (
+            echo '#!${pkgs.bash}/bin/bash'
+            echo
+            echo 'PATH="${packages.ghcWithLib}/bin:''${PATH}"'
+            tail -n+2 bin/bake
+          ) > bake
+          chmod +x bake
+        '';
+        installPhase = ''
+          mkdir -p $out/bin
+          mv bake $out/bin/
+        '';
+      };
       packages.default = packages.bake;
 
       packages.examples = haskellPackages.callCabal2nix "${name}-examples" ./examples { bakery = packages.lib; };
