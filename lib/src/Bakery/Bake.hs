@@ -35,7 +35,7 @@ bake' :: Bake a -> [String] -> Baking ()
 bake' thing args = do
   let outputs = deriveOutputs thing
   logText "Outputs:"
-  mapM_ logValue outputs
+  mapM_ (logText . (\(SomeOutput Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
   logText ""
 
   if null args
@@ -56,8 +56,8 @@ bake' thing args = do
 
     required :: Outputs -> Outputs -> Baking Outputs
     required allOutputs targetOutputs = do
-      requiredTargets <- forM targetOutputs $ \targetOutput@(SomeOutput (Output _ _ inputs _)) -> do
-        dependencies <- mapM (\(SomeInput (Input input)) -> findTarget allOutputs input) inputs
+      requiredTargets <- forM targetOutputs $ \targetOutput@(SomeOutput Output {outputInputs}) -> do
+        dependencies <- mapM (\(SomeInput (Input input)) -> findTarget allOutputs input) outputInputs
         pure $ dependencies ++ [targetOutput]
       pure . List.nubBy equalById $ concat requiredTargets
       where
@@ -73,9 +73,9 @@ bake' thing args = do
       identifier target == identifier output
 
     bakeOutput :: SomeOutput -> Baking ()
-    bakeOutput (SomeOutput (Output outputId _ _ action)) = do
-      logText ("Baking " <> show outputId <> "...")
-      liftIO action $> ()
+    bakeOutput (SomeOutput output@Output {outputAction}) = do
+      logText ("Baking " <> show output <> "...")
+      liftIO outputAction $> ()
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
 recipe target recipe' =

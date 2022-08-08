@@ -37,5 +37,5 @@ instance Monad Bake where
 
 deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
-deriveOutputs (Recipe recipeId out inputs r) = [SomeOutput (Output recipeId out inputs r)]
+deriveOutputs (Recipe recipeId target inputs action) = [SomeOutput (Output recipeId target inputs action)]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y

@@ -8,19 +8,23 @@ where
 import Bakery.Identifier
 import Bakery.Input
 
-data Output a where
-  Output :: Id -> a -> Inputs -> IO a -> Output a
+data Output a = Output
+  { outputId :: Id,
+    outputTarget :: a,
+    outputInputs :: Inputs,
+    outputAction :: IO a
+  }
 
 data SomeOutput = forall a. SomeOutput (Output a)
 
 instance Show (Output a) where
-  show (Output outputId _ inputs _) = show outputId <> " <- " <> show inputs
+  show Output {outputId} = show outputId
 
 instance Show SomeOutput where
   show (SomeOutput x) = show x
 
 instance Identifiable (Output a) where
-  identifier (Output outputId _ _ _) = outputId
+  identifier Output {outputId} = outputId
 
 instance Identifiable SomeOutput where
   identifier (SomeOutput x) = identifier x
