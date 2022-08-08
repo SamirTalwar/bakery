@@ -3,8 +3,6 @@
 module Bakery.Bakeable
   ( Bakeable (..),
     Bake (..),
-    Id (..),
-    Identifiable (..),
     Input (..),
     Inputs,
     SomeInput (..),
@@ -15,11 +13,9 @@ module Bakery.Bakeable
   )
 where
 
+import Bakery.Identifier
 import Control.Monad (ap)
 import Data.Typeable (Proxy (..))
-
-class Identifiable a where
-  identifier :: a -> Id
 
 class (Eq a, Show a, Identifiable a) => Bakeable a where
   type Recipe a
@@ -42,12 +38,6 @@ instance Monad Bake where
   Value x >>= f = f x
   r@(Recipe _ x _ _) >>= f = Both r (f x)
   Both x y >>= f = Both x (y >>= f)
-
-data Id = Id {idType :: String, idTarget :: String}
-  deriving stock (Eq)
-
-instance Show Id where
-  show Id {idType, idTarget} = idType <> ":" <> idTarget
 
 data Input a where
   Input :: forall a. Bakeable a => a -> Input a

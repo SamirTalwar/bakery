@@ -1,6 +1,7 @@
 module Bakery.Existing (Existing, existing) where
 
 import Bakery.Bakeable
+import Bakery.Identifier
 import Bakery.Run (InputPath (..), Path (..))
 import Data.Typeable (Typeable)
 

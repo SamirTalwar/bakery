@@ -4,8 +4,9 @@ module Bakery.Bake
   )
 where
 
-import Bakery.Bakeable (Bake (..), Bakeable (..), Identifiable (..), Input (..), Output (..), Outputs, SomeInput (..), SomeOutput (..), deriveOutputs)
+import Bakery.Bakeable
 import Bakery.File qualified
+import Bakery.Identifier (identifier)
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)

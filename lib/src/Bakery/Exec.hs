@@ -1,6 +1,7 @@
 module Bakery.Exec (Exec, exec) where
 
 import Bakery.Bakeable
+import Bakery.Identifier
 import Bakery.Run (StdIn (..), StdOut (..), deriveShellInputs, evaluateShell, type (#>))
 import Data.Text.IO qualified as Text.IO
 import Data.Typeable (Typeable)
