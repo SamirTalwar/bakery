@@ -1,6 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
-
-module Bakery.Run
+module Bakery.Shell
   ( -- * Construction
     nullStdIn,
     nullStdOut,
@@ -21,7 +19,7 @@ module Bakery.Run
   )
 where
 
-import Bakery.Bakeable (Inputs)
+import Bakery.Input (Inputs)
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty

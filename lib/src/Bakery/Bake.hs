@@ -6,7 +6,7 @@ where
 
 import Bakery.Bakeable
 import Bakery.File qualified
-import Bakery.Identifier (identifier)
+import Bakery.Identifier
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
@@ -61,12 +61,12 @@ bake' thing args = do
       where
         equalById = (==) `on` identifier
 
-    findTarget :: (MonadFail m, Bakeable a) => Outputs -> a -> m SomeOutput
+    findTarget :: (Identifiable a, Show a) => Outputs -> a -> Baking SomeOutput
     findTarget outputs target =
       let targetOutput = List.find (isTarget target) outputs
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput
 
-    isTarget :: Bakeable a => a -> SomeOutput -> Bool
+    isTarget :: Identifiable a => a -> SomeOutput -> Bool
     isTarget target output =
       identifier target == identifier output
 

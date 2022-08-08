@@ -38,7 +38,14 @@
       examples = builtins.attrNames (pkgs.lib.attrsets.filterAttrs (name: value: value == "directory") (builtins.readDir ./examples));
     in
     rec {
-      packages.lib = haskellPackages.callCabal2nix name ./lib { };
+      packages.core = haskellPackages.callCabal2nix name ./core { };
+      packages.lib = haskellPackages.callCabal2nix name ./lib {
+        bakery-core = packages.core;
+        bakery-shell = packages.shell;
+      };
+      packages.shell = haskellPackages.callCabal2nix name ./shell {
+        bakery-core = packages.core;
+      };
       packages.ghcWithLib = haskellPackages.ghcWithPackages (_: [ packages.lib ]);
       packages.bake = pkgs.writeShellScriptBin "bake" ''
         exec ${packages.ghcWithLib}/bin/runhaskell \

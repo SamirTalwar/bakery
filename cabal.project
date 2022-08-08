@@ -1,3 +1,5 @@
 packages:
+  core
   lib
   examples
+  shell

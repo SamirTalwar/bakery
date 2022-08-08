@@ -2,7 +2,7 @@ module Bakery.File (File, file) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
-import Bakery.Run
+import Bakery.Shell
 import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Typeable (Typeable)

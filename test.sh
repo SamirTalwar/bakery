@@ -5,9 +5,13 @@
 set -e
 set -u
 set -o pipefail
+shopt -s globstar
 
-haskell_packages=(lib examples)
-haskell_files=(lib/**/*.hs examples/**/*.hs)
+haskell_packages=(core lib shell examples)
+haskell_files=()
+for package in "${haskell_packages[@]}"; do
+  haskell_files+=("$package"/**/*.hs)
+done
 
 function note {
   echo '+' "$@"
@@ -17,6 +21,9 @@ for package in "${haskell_packages[@]}"; do
   note "hpack ${package}"
   hpack "$package"
 done
+
+note 'cabal build all'
+cabal build all
 
 note 'nix build .#bake'
 nix build '.#bake' --out-link out/bake

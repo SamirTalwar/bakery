@@ -16,7 +16,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 
 ### Shell
 
-- Split the shell out into its own package, decoupled from the library.
 - Support multi-line shell scripts.
 - Add `cd`.
 

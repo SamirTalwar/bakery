@@ -1,6 +1,6 @@
 spec-version: 0.34.7
 
-name: bakery
+name: bakery-shell
 synopsis: Cakes, not baking.
 author:
   - Samir Talwar <samir@noodlesandwich.com>
@@ -17,11 +17,9 @@ default-extensions:
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - LambdaCase
-  - NamedFieldPuns
-  - ScopedTypeVariables
   - StandaloneDeriving
-  - TypeFamilies
   - TypeOperators
+  - TypeSynonymInstances
 
 ghc-options:
   - -Wall
@@ -30,10 +28,10 @@ ghc-options:
 dependencies:
   - base
   - bakery-core
-  - bakery-shell
   - directory
   - text
   - transformers
+  - typed-process
 
 library:
   source-dirs:

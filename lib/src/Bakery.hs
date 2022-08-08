@@ -3,7 +3,7 @@ module Bakery
     module Bakery.Exec,
     module Bakery.Existing,
     module Bakery.File,
-    module Bakery.Run,
+    module Bakery.Shell,
   )
 where
 
@@ -11,4 +11,4 @@ import Bakery.Bake
 import Bakery.Exec
 import Bakery.Existing
 import Bakery.File
-import Bakery.Run
+import Bakery.Shell

@@ -14,6 +14,8 @@ module Bakery.Bakeable
 where
 
 import Bakery.Identifier
+import Bakery.Input
+import Bakery.Output
 import Control.Monad (ap)
 import Data.Typeable (Proxy (..))
 
@@ -38,38 +40,6 @@ instance Monad Bake where
   Value x >>= f = f x
   r@(Recipe _ x _ _) >>= f = Both r (f x)
   Both x y >>= f = Both x (y >>= f)
-
-data Input a where
-  Input :: forall a. Bakeable a => a -> Input a
-
-data SomeInput = forall a. SomeInput (Input a)
-
-instance Show (Input a) where
-  show (Input x) = show x
-
-instance Show SomeInput where
-  show (SomeInput x) = show x
-
-type Inputs = [SomeInput]
-
-data Output a where
-  Output :: Id -> a -> Inputs -> IO a -> Output a
-
-data SomeOutput = forall a. SomeOutput (Output a)
-
-instance Show (Output a) where
-  show (Output outputId _ inputs _) = show outputId <> " <- " <> show inputs
-
-instance Show SomeOutput where
-  show (SomeOutput x) = show x
-
-instance Identifiable (Output a) where
-  identifier (Output outputId _ _ _) = outputId
-
-instance Identifiable SomeOutput where
-  identifier (SomeOutput x) = identifier x
-
-type Outputs = [SomeOutput]
 
 deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
