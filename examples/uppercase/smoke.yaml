@@ -1,0 +1,25 @@
+working-directory: .
+
+shell:
+  - bash
+  - -e
+
+tests:
+  - name: uppercase/no-input
+    command: ./bake.hs
+    exit-status: 1
+    stderr: |
+      bake.hs: user error (Expected input.file to exist.)
+    revert:
+      - .
+
+  - name: uppercase/with-input
+    command: |
+      echo lorem ipsum > input.file
+      ./bake.hs
+    files:
+      - path: output.file
+        contents: |
+          LOREM IPSUM
+    revert:
+      - .

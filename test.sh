@@ -28,8 +28,8 @@ cabal build all
 note 'nix build .#bake'
 nix build '.#bake' --out-link out/bake
 
-note 'smoke examples/smoke.yaml'
-nix shell '.#bake' --command smoke examples/smoke.yaml
+note 'smoke examples/*/smoke.yaml'
+nix shell '.#bake' --command smoke examples/*/smoke.yaml
 
 note 'hlint'
 hlint "${haskell_files[@]}"

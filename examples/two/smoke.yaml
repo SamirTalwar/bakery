@@ -1,0 +1,36 @@
+working-directory: .
+
+shell:
+  - bash
+  - -e
+
+tests:
+  - name: two/two
+    command: ./bake.hs
+    files:
+      - path: two.file
+        contents: |
+          two
+    revert:
+      - .
+
+  - name: two/one
+    command: ./bake.hs one.file
+    files:
+      - path: one.file
+        contents: |
+          one
+    revert:
+      - .
+
+  - name: two/both
+    command: ./bake.hs one.file two.file
+    files:
+      - path: one.file
+        contents: |
+          one
+      - path: two.file
+        contents: |
+          two
+    revert:
+      - .

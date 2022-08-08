@@ -1,0 +1,15 @@
+working-directory: .
+
+shell:
+  - bash
+  - -e
+
+tests:
+  - name: echo
+    command: ./bake.hs
+    files:
+      - path: output.file
+        contents: |
+          Hello, world!
+    revert:
+      - .
