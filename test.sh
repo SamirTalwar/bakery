@@ -7,11 +7,20 @@ set -u
 set -o pipefail
 shopt -s globstar
 
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
 haskell_packages=(core lib shell examples)
 haskell_files=()
 for package in "${haskell_packages[@]}"; do
   haskell_files+=("$package"/**/*.hs)
 done
+
+if [[ -n "${SMOKE_TARGETS+x}" ]]; then
+  # convert to array
+  mapfile -t SMOKE_TARGETS <<< "$SMOKE_TARGETS"
+else
+  SMOKE_TARGETS=(examples/*/smoke.yaml)
+fi
 
 function note {
   echo '+' "$@"
@@ -25,11 +34,19 @@ done
 note 'cabal build all'
 cabal build all
 
-note 'nix build .#bake'
-nix build '.#bake' --out-link out/bake
+note 'smoke'
+(
+  PATH="${PWD}/bin:${PATH}"
+  cabal exec -- smoke "${SMOKE_TARGETS[@]}"
+)
 
-note 'smoke examples/*/smoke.yaml'
-nix shell '.#bake' --command smoke examples/*/smoke.yaml
+if [[ -n "${TEST_NIX+x}" ]]; then
+  note 'nix build .#bake'
+  nix build '.#bake' --out-link out/bake
+
+  note 'smoke (with nix)'
+  nix shell '.#bake' --command smoke examples/*/smoke.yaml
+fi
 
 note 'hlint'
 hlint "${haskell_files[@]}"

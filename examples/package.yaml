@@ -17,19 +17,19 @@ dependencies:
   - bakery
 
 executables:
-  echo:
+  example-echo:
     main: bake.hs
     source-dirs:
       - echo
-  exec:
+  example-exec:
     main: bake.hs
     source-dirs:
       - exec
-  two:
+  example-two:
     main: bake.hs
     source-dirs:
       - two
-  uppercase:
+  example-uppercase:
     main: bake.hs
     source-dirs:
       - uppercase
