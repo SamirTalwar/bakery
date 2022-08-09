@@ -3,6 +3,7 @@ module Bakery.Existing (Existing, existing) where
 import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
+import Bakery.Output (Output (..))
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (InputPath (..), Path (..))
 
@@ -11,12 +12,13 @@ newtype Existing a = Existing a
 
 existing :: Bakeable a => a -> Bake (Existing a)
 existing x =
-  Recipe
-    (identifier x)
-    (Existing x)
-    []
-    (exists (Existing x))
-    (follow x (Existing x))
+  Recipe $
+    Output
+      (identifier x)
+      (Existing x)
+      []
+      (exists (Existing x))
+      (follow x (Existing x))
 
 instance Identifiable a => Identifiable (Existing a) where
   identifier (Existing x) = identifier x

@@ -8,6 +8,9 @@ where
 import Bakery.Identifier
 import Bakery.Input
 
+-- We have to capture all this information because we cannot rely on a
+-- 'Bakeable' constraint. Aside from 'Bakeable' not existing in this package,
+-- constraints are lost in 'SomeOutput'.
 data Output a = Output
   { outputId :: Id,
     outputTarget :: a,
@@ -17,6 +20,8 @@ data Output a = Output
   }
 
 data SomeOutput = forall a. SomeOutput (Output a)
+
+deriving stock instance Functor Output
 
 instance Show (Output a) where
   show Output {outputId} = show outputId

@@ -80,12 +80,13 @@ bake' thing args = do
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
 recipe target recipe' =
-  Recipe
-    (identifier target)
-    target
-    (deriveInputs (Proxy :: Proxy a) recipe')
-    (exists target)
-    (follow recipe' target)
+  Recipe $
+    Output
+      (identifier target)
+      target
+      (deriveInputs (Proxy :: Proxy a) recipe')
+      (exists target)
+      (follow recipe' target)
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()
