@@ -4,6 +4,7 @@ import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell.AST (type (#>))
+import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Inputs qualified as Shell
 import Bakery.Shell.Path (InputPath (..), OutputPath (..), Path (..))
@@ -30,6 +31,9 @@ instance Bakeable File where
 
 instance Path File where
   toInputPath f@(File path) = InputPath [SomeInput (Input f)] path
+
+instance Argument File where
+  toArg = PathArg . toInputPath
 
 file :: String -> File
 file path = File (fromString path)

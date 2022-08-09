@@ -23,9 +23,6 @@ instance Argument String where
 instance Argument Integer where
   toArg = IntegerArg
 
-instance Argument InputPath where
-  toArg = PathArg
-
 fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
 fromArg (IntegerArg arg) = show arg

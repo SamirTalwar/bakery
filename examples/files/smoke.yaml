@@ -34,3 +34,34 @@ tests:
           two
     revert:
       - .
+
+  - name: files/cat
+    command: ./bake.hs cat.file
+    files:
+      - path: cat.file
+        contents: |
+          one
+          two
+    revert:
+      - .
+
+  - name: files/cat-existing
+    command: |
+      echo 'extra content' > existing.file
+      ./bake.hs cat-existing.file
+    files:
+      - path: cat-existing.file
+        contents: |
+          extra content
+          one
+          two
+    revert:
+      - .
+
+  - name: files/cat-no-existing
+    command: ./bake.hs cat-existing.file
+    exit-status: 1
+    stderr: |
+      bake.hs: user error (Expected existing.file to exist.)
+    revert:
+      - .

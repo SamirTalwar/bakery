@@ -3,11 +3,11 @@ module Bakery.Existing (Existing, existing) where
 import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
+import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (InputPath (..), Path (..))
-import Data.Typeable (Typeable)
 
 newtype Existing a = Existing a
-  deriving newtype (Eq, Show, Typeable)
+  deriving newtype (Eq, Show)
 
 existing :: Bakeable a => a -> Bake (Existing a)
 existing x = Recipe (identifier x) (Existing x) [] (follow x (Existing x))
@@ -24,7 +24,10 @@ instance Bakeable a => Bakeable (Existing a) where
       True -> pure target
       False -> fail ("Expected " <> show recipe <> " to exist.")
 
-instance (Path a, Bakeable a) => Path (Existing a) where
+instance (Identifiable a, Path a, Show a) => Path (Existing a) where
   toInputPath self@(Existing x) =
     let InputPath _ path = toInputPath x
      in InputPath [SomeInput (Input self)] path
+
+instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
+  toArg = PathArg . toInputPath
