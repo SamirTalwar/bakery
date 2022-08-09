@@ -13,7 +13,8 @@ deriveInputs (Run args) =
   toList args >>= \case
     StringArg _ -> []
     IntegerArg _ -> []
-    PathArg (InputPath inputs _) -> inputs
+    InputPathArg (InputPath inputs _) -> inputs
+    OutputPathArg _ -> []
 deriveInputs (Read (InputPath inputs _)) = inputs
 deriveInputs (Write _) = []
 deriveInputs (Compose a b) = deriveInputs a <> deriveInputs b

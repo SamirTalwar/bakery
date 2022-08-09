@@ -1,4 +1,10 @@
-module Bakery.Shell.Path where
+module Bakery.Shell.Path
+  ( InputPath (..),
+    OutputPath (..),
+    Path (..),
+    unknownOutputPathFailure,
+  )
+where
 
 import Bakery.Input (Inputs)
 
@@ -15,3 +21,6 @@ deriving stock instance Show OutputPath
 
 class Path a where
   toInputPath :: a -> InputPath
+
+unknownOutputPathFailure :: String
+unknownOutputPathFailure = "INTERNAL ERROR: Cannot write to an unknown path."

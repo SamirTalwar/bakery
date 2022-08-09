@@ -65,3 +65,14 @@ tests:
       bake.hs: user error (Expected existing.file to exist.)
     revert:
       - .
+
+  - name: files/copy
+    command: |
+      echo 'this is very important' > existing.file
+      ./bake.hs copy.file
+    files:
+      - path: copy.file
+        contents: |
+          this is very important
+    revert:
+      - .

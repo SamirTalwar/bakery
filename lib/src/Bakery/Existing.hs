@@ -30,4 +30,4 @@ instance (Identifiable a, Path a, Show a) => Path (Existing a) where
      in InputPath [SomeInput (Input self)] path
 
 instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
-  toArg = PathArg . toInputPath
+  toArg = InputPathArg . toInputPath

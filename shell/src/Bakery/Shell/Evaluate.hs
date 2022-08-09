@@ -2,7 +2,7 @@ module Bakery.Shell.Evaluate (evaluate) where
 
 import Bakery.Shell.AST (type (#>) (..))
 import Bakery.Shell.Argument (fromArg)
-import Bakery.Shell.Path (InputPath (..), OutputPath (..))
+import Bakery.Shell.Path (InputPath (..), OutputPath (..), unknownOutputPathFailure)
 import Bakery.Shell.Pipe (StdIn (..), StdOut (..))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text qualified as Text
@@ -32,6 +32,6 @@ evaluate (Read (InputPath _ path)) () =
 evaluate (Write (KnownOutputPath path)) (StdOut text) =
   Text.IO.writeFile path text
 evaluate (Write UnknownOutputPath) (StdOut _) =
-  fail "INTERNAL ERROR: Cannot write to an unknown path."
+  fail unknownOutputPathFailure
 evaluate (Compose a b) i =
   evaluate a i >>= evaluate b

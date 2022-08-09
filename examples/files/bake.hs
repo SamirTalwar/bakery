@@ -16,3 +16,6 @@ main = bake do
 
   recipe (file "cat.file") $ \output ->
     nullStdIn |> run "cat" one two |> writeF output
+
+  recipe (file "copy.file") $ \output ->
+    nullStdIn |> run "cp" existing output |> nullStdOut

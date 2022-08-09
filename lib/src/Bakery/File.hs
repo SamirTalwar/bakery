@@ -33,7 +33,7 @@ instance Path File where
   toInputPath f@(File path) = InputPath [SomeInput (Input f)] path
 
 instance Argument File where
-  toArg = PathArg . toInputPath
+  toArg = InputPathArg . toInputPath
 
 file :: String -> File
 file path = File (fromString path)
