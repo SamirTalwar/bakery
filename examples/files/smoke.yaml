@@ -5,16 +5,7 @@ shell:
   - -e
 
 tests:
-  - name: two/two
-    command: ./bake.hs
-    files:
-      - path: two.file
-        contents: |
-          two
-    revert:
-      - .
-
-  - name: two/one
+  - name: files/one
     command: ./bake.hs one.file
     files:
       - path: one.file
@@ -23,7 +14,16 @@ tests:
     revert:
       - .
 
-  - name: two/both
+  - name: files/two
+    command: ./bake.hs two.file
+    files:
+      - path: two.file
+        contents: |
+          two
+    revert:
+      - .
+
+  - name: files/both
     command: ./bake.hs one.file two.file
     files:
       - path: one.file

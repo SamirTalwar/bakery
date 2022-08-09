@@ -25,10 +25,10 @@ executables:
     main: bake.hs
     source-dirs:
       - exec
-  example-two:
+  example-files:
     main: bake.hs
     source-dirs:
-      - two
+      - files
   example-uppercase:
     main: bake.hs
     source-dirs:
