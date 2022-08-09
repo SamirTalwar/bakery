@@ -21,7 +21,9 @@ class (Eq a, Show a, Identifiable a) => Bakeable a where
 
 data Bake a where
   Value :: a -> Bake a
-  Recipe :: Id -> a -> Inputs -> IO a -> Bake a
+  -- There's something very wrong here.
+  -- All this to avoid a constraint on 'Bakeable'.
+  Recipe :: Id -> a -> Inputs -> IO Bool -> IO a -> Bake a
   Both :: Bake a -> Bake b -> Bake b
 
 deriving stock instance Functor Bake
@@ -32,10 +34,10 @@ instance Applicative Bake where
 
 instance Monad Bake where
   Value x >>= f = f x
-  r@(Recipe _ x _ _) >>= f = Both r (f x)
+  r@(Recipe _ x _ _ _) >>= f = Both r (f x)
   Both x y >>= f = Both x (y >>= f)
 
 deriveOutputs :: forall a. Bake a -> Outputs
 deriveOutputs (Value _) = []
-deriveOutputs (Recipe recipeId target inputs action) = [SomeOutput (Output recipeId target inputs action)]
+deriveOutputs (Recipe recipeId target inputs existing action) = [SomeOutput (Output recipeId target inputs existing action)]
 deriveOutputs (Both x y) = deriveOutputs x <> deriveOutputs y

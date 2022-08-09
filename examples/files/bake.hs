@@ -19,3 +19,6 @@ main = bake do
 
   recipe (file "copy.file") $ \output ->
     nullStdIn |> run "cp" existing output |> nullStdOut
+
+  recipe (file "non-existent.file") $ \output ->
+    nullStdIn |> run "cat" one |> nullStdOut

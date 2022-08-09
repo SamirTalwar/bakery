@@ -76,3 +76,16 @@ tests:
           this is very important
     revert:
       - .
+
+  - name: files/non-existent
+    command: |
+      ./bake.hs non-existent.file
+    exit-status: 1
+    stderr: |
+      bake.hs: user error (Did not produce file:non-existent.file.)
+    files:
+      - path: one.file
+        contents: |
+          one
+    revert:
+      - .

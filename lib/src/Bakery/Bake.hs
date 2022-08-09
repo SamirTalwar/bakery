@@ -9,12 +9,11 @@ import Bakery.File qualified
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Output
-import Control.Monad (forM, forM_)
+import Control.Monad (forM, forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import Control.Monad.Trans.Reader qualified as Reader
 import Data.Function (on)
-import Data.Functor (($>))
 import Data.List qualified as List
 import Data.Typeable (Proxy (..))
 import System.Environment (getArgs, lookupEnv)
@@ -73,9 +72,11 @@ bake' thing args = do
       identifier target == identifier output
 
     bakeOutput :: SomeOutput -> Baking ()
-    bakeOutput (SomeOutput output@Output {outputAction}) = do
+    bakeOutput (SomeOutput output@Output {outputAction, outputExists}) = do
       logText ("Baking " <> show output <> "...")
-      liftIO outputAction $> ()
+      void $ liftIO outputAction
+      doesExist <- liftIO outputExists
+      unless doesExist . fail $ "Did not produce " <> show output <> "."
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
 recipe target recipe' =
@@ -83,6 +84,7 @@ recipe target recipe' =
     (identifier target)
     target
     (deriveInputs (Proxy :: Proxy a) recipe')
+    (exists target)
     (follow recipe' target)
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}

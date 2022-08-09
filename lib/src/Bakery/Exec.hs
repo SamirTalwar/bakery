@@ -21,7 +21,7 @@ instance Identifiable Exec where
 instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
   deriveInputs _ = Shell.deriveInputs
-  exists _ = pure False
+  exists _ = pure True
   follow recipe target = do
     StdOut stdout <- Shell.evaluate recipe (StdIn mempty)
     Text.IO.putStr stdout

@@ -12,6 +12,7 @@ data Output a = Output
   { outputId :: Id,
     outputTarget :: a,
     outputInputs :: Inputs,
+    outputExists :: IO Bool,
     outputAction :: IO a
   }
 

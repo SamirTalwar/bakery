@@ -10,7 +10,13 @@ newtype Existing a = Existing a
   deriving newtype (Eq, Show)
 
 existing :: Bakeable a => a -> Bake (Existing a)
-existing x = Recipe (identifier x) (Existing x) [] (follow x (Existing x))
+existing x =
+  Recipe
+    (identifier x)
+    (Existing x)
+    []
+    (exists (Existing x))
+    (follow x (Existing x))
 
 instance Identifiable a => Identifiable (Existing a) where
   identifier (Existing x) = identifier x
