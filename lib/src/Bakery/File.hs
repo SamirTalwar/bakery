@@ -8,6 +8,7 @@ import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Inputs qualified as Shell
 import Bakery.Shell.Path (InputPath (..), OutputPath (..), Path (..))
+import Control.Monad.IO.Class (liftIO)
 import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Typeable (Typeable)
@@ -26,8 +27,8 @@ instance Identifiable File where
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()
   deriveInputs _ recipe = Shell.deriveInputs (recipe UnknownOutputPath)
-  exists (File path) = Directory.doesPathExist path
-  follow recipe f@(File path) = Shell.evaluate (recipe (KnownOutputPath path)) () $> f
+  exists (File path) = liftIO $ Directory.doesPathExist path
+  follow recipe f@(File path) = liftIO $ Shell.evaluate (recipe (KnownOutputPath path)) () $> f
 
 instance Path File where
   toInputPath f@(File path) = InputPath [SomeInput (Input f)] path

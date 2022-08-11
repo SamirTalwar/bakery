@@ -5,6 +5,7 @@ module Bakery.Output
   )
 where
 
+import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
 
@@ -15,8 +16,8 @@ data Output a = Output
   { outputId :: Id,
     outputTarget :: a,
     outputInputs :: Inputs,
-    outputExists :: IO Bool,
-    outputAction :: IO a
+    outputExists :: Baking Bool,
+    outputAction :: Baking a
   }
 
 data SomeOutput = forall a. SomeOutput (Output a)

@@ -5,30 +5,27 @@ module Bakery.Bake
 where
 
 import Bakery.Bakeable
+import Bakery.Baking
+import Bakery.Env
 import Bakery.File qualified
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Output
 import Control.Monad (forM, forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import Control.Monad.Trans.Reader qualified as Reader
 import Data.Function (on)
 import Data.List qualified as List
 import Data.Typeable (Proxy (..))
 import System.Environment (getArgs, lookupEnv)
-import System.IO (Handle, hPutStrLn, stderr)
-
-newtype Env = Env {logger :: Maybe Handle}
-
-type Baking a = ReaderT Env IO a
+import System.IO (hPutStrLn, stderr)
 
 bake :: Bake a -> IO ()
 bake thing = do
   args <- getArgs
   logger <- fmap (const stderr) <$> lookupEnv "BAKE_LOG"
   let env = Env {logger}
-  runReaderT (bake' thing args) env
+  Reader.runReaderT (runBaking (bake' thing args)) env
 
 bake' :: Bake a -> [String] -> Baking ()
 bake' thing args = do
@@ -74,8 +71,8 @@ bake' thing args = do
     bakeOutput :: SomeOutput -> Baking ()
     bakeOutput (SomeOutput output@Output {outputAction, outputExists}) = do
       logText ("Baking " <> show output <> "...")
-      void $ liftIO outputAction
-      doesExist <- liftIO outputExists
+      void outputAction
+      doesExist <- outputExists
       unless doesExist . fail $ "Did not produce " <> show output <> "."
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
@@ -90,7 +87,7 @@ recipe target recipe' =
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()
-logText text = do
+logText text = Baking do
   handle <- Reader.asks logger
   liftIO $ maybe (pure ()) (\h -> hPutStrLn h text) handle
 

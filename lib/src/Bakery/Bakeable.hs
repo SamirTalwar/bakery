@@ -7,6 +7,7 @@ module Bakery.Bakeable
   )
 where
 
+import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Output
@@ -16,8 +17,8 @@ import Data.Typeable (Proxy (..))
 class (Eq a, Show a, Identifiable a) => Bakeable a where
   type Recipe a
   deriveInputs :: Proxy a -> Recipe a -> Inputs
-  exists :: a -> IO Bool
-  follow :: Recipe a -> a -> IO a
+  exists :: a -> Baking Bool
+  follow :: Recipe a -> a -> Baking a
 
 data Bake a where
   Value :: a -> Bake a

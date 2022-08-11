@@ -23,6 +23,7 @@ ghc-options:
 
 dependencies:
   - base
+  - transformers
 
 library:
   source-dirs:

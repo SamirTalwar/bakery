@@ -6,6 +6,7 @@ import Bakery.Shell.AST (type (#>))
 import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Inputs qualified as Shell
 import Bakery.Shell.Pipe (StdIn (..), StdOut (..))
+import Control.Monad.IO.Class (liftIO)
 import Data.Text.IO qualified as Text.IO
 import Data.Typeable (Typeable)
 
@@ -23,6 +24,6 @@ instance Bakeable Exec where
   deriveInputs _ = Shell.deriveInputs
   exists _ = pure True
   follow recipe target = do
-    StdOut stdout <- Shell.evaluate recipe (StdIn mempty)
-    Text.IO.putStr stdout
+    StdOut stdout <- liftIO $ Shell.evaluate recipe (StdIn mempty)
+    liftIO $ Text.IO.putStr stdout
     pure target
