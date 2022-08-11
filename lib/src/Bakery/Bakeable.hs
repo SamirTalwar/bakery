@@ -20,6 +20,8 @@ import Data.Typeable (Proxy (..))
 
 class (Eq a, Show a, Identifiable a) => Bakeable a where
   type Recipe a
+  normalize :: a -> Baking a
+  normalize = pure
   deriveInputs :: Proxy a -> Recipe a -> Inputs
   exists :: a -> Baking Bool
   follow :: Recipe a -> a -> Baking a

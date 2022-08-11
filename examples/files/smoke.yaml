@@ -78,11 +78,30 @@ tests:
       - .
 
   - name: files/non-existent
-    command: |
-      ./bake.hs non-existent.file
+    command: ./bake.hs non-existent.file
     exit-status: 1
     stderr: |
       bake.hs: user error (Did not produce file:non-existent.file.)
+    files:
+      - path: one.file
+        contents: |
+          one
+    revert:
+      - .
+
+  - name: files/normalize/relative
+    command: ./bake.hs ./one.file
+    files:
+      - path: one.file
+        contents: |
+          one
+    revert:
+      - .
+
+  - name: files/normalize/relative-but-indirect
+    command: |
+      mkdir -p foo/bar/baz
+      ./bake.hs ../files/foo/bar/../bar/baz/../../../one.file
     files:
       - path: one.file
         contents: |

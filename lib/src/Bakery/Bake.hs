@@ -17,6 +17,7 @@ import Control.Monad.Trans.Reader qualified as Reader
 import Data.Function (on)
 import Data.List qualified as List
 import Data.Typeable (Proxy (..))
+import System.Directory qualified as Directory
 import System.Environment (getArgs, lookupEnv)
 import System.IO (hPutStrLn, stderr)
 
@@ -24,11 +25,13 @@ bake :: Bake Baking a -> IO ()
 bake thing = do
   args <- getArgs
   logger <- fmap (const stderr) <$> lookupEnv "BAKE_LOG"
-  let env = Env {logger}
-  Reader.runReaderT (runBaking (bake' thing args)) env
+  root <- Directory.getCurrentDirectory
+  let env = Env {logger, root}
+  flip Reader.runReaderT env . runBaking $
+    actuallyBake thing args
 
-bake' :: Bake Baking a -> [String] -> Baking ()
-bake' thing args = do
+actuallyBake :: Bake Baking a -> [String] -> Baking ()
+actuallyBake thing args = do
   outputs <- deriveOutputs thing
   logText "Outputs:"
   mapM_ (logText . (\(SomeOutput Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
@@ -39,7 +42,7 @@ bake' thing args = do
       bakeOutputs outputs [last outputs]
     else do
       -- for now, we treat all targets on the command line as files
-      targetOutputs <- mapM (findTarget outputs . Bakery.File.file) args
+      targetOutputs <- mapM (\arg -> normalize (Bakery.File.file arg) >>= findTarget outputs) args
       bakeOutputs outputs targetOutputs
   where
     bakeOutputs :: Outputs -> Outputs -> Baking ()
@@ -76,14 +79,15 @@ bake' thing args = do
       unless doesExist . fail $ "Did not produce " <> show output <> "."
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> Bake Baking a
-recipe target recipe' =
-  Bake . pure . Recipe $
+recipe target recipe' = Bake do
+  normalized <- normalize target
+  pure . Recipe $
     Output
-      (identifier target)
-      target
+      (identifier normalized)
+      normalized
       (deriveInputs (Proxy :: Proxy a) recipe')
-      (exists target)
-      (follow recipe' target)
+      (exists normalized)
+      (follow recipe' normalized)
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()

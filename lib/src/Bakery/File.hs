@@ -1,6 +1,8 @@
 module Bakery.File (File, file) where
 
 import Bakery.Bakeable
+import Bakery.Baking
+import Bakery.Env qualified as Env
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell.AST (type (#>))
@@ -9,10 +11,12 @@ import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Inputs qualified as Shell
 import Bakery.Shell.Path (InputPath (..), OutputPath (..), Path (..))
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (asks)
 import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Typeable (Typeable)
 import System.Directory qualified as Directory
+import System.FilePath qualified as FilePath
 
 newtype File = File FilePath
   deriving newtype (Eq)
@@ -26,6 +30,10 @@ instance Identifiable File where
 
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()
+  normalize (File path) = Baking $ do
+    root <- asks Env.root
+    canonicalPath <- liftIO $ Directory.canonicalizePath path
+    pure . File $ FilePath.makeRelative root canonicalPath
   deriveInputs _ recipe = Shell.deriveInputs (recipe UnknownOutputPath)
   exists (File path) = liftIO $ Directory.doesPathExist path
   follow recipe f@(File path) = liftIO $ Shell.evaluate (recipe (KnownOutputPath path)) () $> f

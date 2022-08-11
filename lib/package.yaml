@@ -32,6 +32,7 @@ dependencies:
   - bakery-core
   - bakery-shell
   - directory
+  - filepath
   - text
   - transformers
 

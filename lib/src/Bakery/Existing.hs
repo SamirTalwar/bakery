@@ -25,6 +25,7 @@ instance Identifiable a => Identifiable (Existing a) where
 
 instance Bakeable a => Bakeable (Existing a) where
   type Recipe (Existing a) = a
+  normalize (Existing x) = Existing <$> normalize x
   deriveInputs _ _ = []
   exists (Existing x) = exists x
   follow recipe target =
