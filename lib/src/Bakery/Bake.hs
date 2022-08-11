@@ -20,16 +20,16 @@ import Data.Typeable (Proxy (..))
 import System.Environment (getArgs, lookupEnv)
 import System.IO (hPutStrLn, stderr)
 
-bake :: Bake a -> IO ()
+bake :: Bake Baking a -> IO ()
 bake thing = do
   args <- getArgs
   logger <- fmap (const stderr) <$> lookupEnv "BAKE_LOG"
   let env = Env {logger}
   Reader.runReaderT (runBaking (bake' thing args)) env
 
-bake' :: Bake a -> [String] -> Baking ()
+bake' :: Bake Baking a -> [String] -> Baking ()
 bake' thing args = do
-  let outputs = deriveOutputs thing
+  outputs <- deriveOutputs thing
   logText "Outputs:"
   mapM_ (logText . (\(SomeOutput Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
   logText ""
@@ -75,9 +75,9 @@ bake' thing args = do
       doesExist <- outputExists
       unless doesExist . fail $ "Did not produce " <> show output <> "."
 
-recipe :: forall a. Bakeable a => a -> Recipe a -> Bake a
+recipe :: forall a. Bakeable a => a -> Recipe a -> Bake Baking a
 recipe target recipe' =
-  Recipe $
+  Bake . pure . Recipe $
     Output
       (identifier target)
       target

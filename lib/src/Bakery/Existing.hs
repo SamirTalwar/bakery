@@ -10,9 +10,9 @@ import Bakery.Shell.Path (InputPath (..), Path (..))
 newtype Existing a = Existing a
   deriving newtype (Eq, Show)
 
-existing :: Bakeable a => a -> Bake (Existing a)
+existing :: (Monad m, Bakeable a) => a -> Bake m (Existing a)
 existing x =
-  Recipe $
+  Bake . pure . Recipe $
     Output
       (identifier x)
       (Existing x)
