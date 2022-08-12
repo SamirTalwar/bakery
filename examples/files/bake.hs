@@ -3,6 +3,8 @@
 import Bakery
 
 main = bake do
+  thisDirectory <- currentDirectory
+
   existing <- existing $ file "existing.file"
 
   one <- recipe (file "one.file") $ \output ->
@@ -25,3 +27,9 @@ main = bake do
 
   recipe (file "../files/./indirect.file") $ \output ->
     nullStdIn |> run "echo" "this got there eventually" |> writeF output
+
+  recipe (file $ thisDirectory <> "/../tmp/output.file") $ \output ->
+    nullStdIn |> run "echo" "This is a test." |> writeF output
+
+  recipe (file $ thisDirectory <> "/../tmp/non-existent.file") $ \output ->
+    nullStdIn |> run "cat" |> nullStdOut

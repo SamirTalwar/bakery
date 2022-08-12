@@ -91,13 +91,38 @@ tests:
     command: ./bake.hs non-existent.file
     exit-status: 1
     stderr: |
-      bake.hs: user error (Did not produce file:non-existent.file.)
+      bake.hs: user error (Did not produce file:./non-existent.file.)
     files:
+      # `one.file` is a dependency and is therefore still produced.
       - path: one.file
         contents: |
           one
     revert:
       - .
+
+  - name: files/absolute
+    command: |
+      rm -rf ../tmp
+      mkdir -p ../tmp
+      ./bake.hs ../tmp/output.file
+    files:
+      - path: ../tmp/output.file
+        contents: |
+          This is a test.
+    revert:
+      - ../tmp
+
+  - name: files/absolute/non-existent
+    command: |
+      mkdir -p ../tmp
+      ./bake.hs ../tmp/non-existent.file
+    exit-status: 1
+    stderr:
+      # replace the repository path with "<PWD>" so that this is system-agnostic
+      filter: |
+        sed "s#$PWD#\\<PWD>#"
+      contents: |
+        bake.hs: user error (Did not produce file:<PWD>/examples/tmp/non-existent.file.)
 
   - name: files/normalize/relative
     command: ./bake.hs ./one.file

@@ -17,6 +17,7 @@ import Data.String (fromString)
 import Data.Text qualified as Text
 import Data.Typeable (Typeable)
 import System.Directory qualified as Directory
+import System.FilePath ((</>))
 import System.FilePath qualified as FilePath
 
 newtype File = File FilePath
@@ -35,7 +36,10 @@ instance Bakeable File where
   normalize (File path) = Baking $ do
     root <- asks Env.root
     canonicalPath <- liftIO $ Directory.canonicalizePath path
-    pure . File $ FilePath.makeRelative root canonicalPath
+    let relativePath = FilePath.makeRelative root canonicalPath
+    if FilePath.isRelative relativePath
+      then pure $ File ("." </> relativePath)
+      else pure $ File relativePath -- this is absolute
   parseName pathText =
     let path = Text.unpack pathText
      in if FilePath.isValid path
