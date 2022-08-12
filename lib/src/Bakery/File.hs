@@ -36,6 +36,11 @@ instance Bakeable File where
     root <- asks Env.root
     canonicalPath <- liftIO $ Directory.canonicalizePath path
     pure . File $ FilePath.makeRelative root canonicalPath
+  parseName pathText =
+    let path = Text.unpack pathText
+     in if FilePath.isValid path
+          then Just <$> normalize (File path)
+          else pure Nothing
   deriveInputs _ recipe = Shell.deriveInputs (recipe UnknownOutputPath)
   exists (File path) = liftIO $ Directory.doesPathExist path
   follow recipe f@(File path) = liftIO $ Shell.evaluate (recipe (KnownOutputPath path)) () $> f

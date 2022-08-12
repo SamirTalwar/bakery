@@ -22,3 +22,6 @@ main = bake do
 
   recipe (file "non-existent.file") $ \output ->
     nullStdIn |> run "cat" one |> nullStdOut
+
+  recipe (file "../files/./indirect.file") $ \output ->
+    nullStdIn |> run "echo" "this got there eventually" |> writeF output

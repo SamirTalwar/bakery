@@ -24,6 +24,7 @@ instance Identifiable Exec where
 
 instance Bakeable Exec where
   type Recipe Exec = (StdIn #> StdOut)
+  parseName = pure . Just . Exec
   deriveInputs _ = Shell.deriveInputs
   exists _ = pure True
   follow recipe target = do

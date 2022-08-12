@@ -68,6 +68,16 @@ tests:
 
   - name: files/copy
     command: |
+      ./bake.hs ./indirect.file
+    files:
+      - path: indirect.file
+        contents: |
+          this got there eventually
+    revert:
+      - .
+
+  - name: files/copy
+    command: |
       echo 'this is very important' > existing.file
       ./bake.hs copy.file
     files:
@@ -106,5 +116,24 @@ tests:
       - path: one.file
         contents: |
           one
+    revert:
+      - .
+
+  - name: files/qualified
+    command: |
+      ./bake.hs file:./one.file
+    files:
+      - path: one.file
+        contents: |
+          one
+    revert:
+      - .
+
+  - name: files/qualified-but-invalid
+    command: |
+      ./bake.hs file:
+    exit-status: 1
+    stderr: |
+      bake.hs: user error (I don't know what "file:" is.)
     revert:
       - .

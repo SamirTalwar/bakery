@@ -21,6 +21,7 @@ default-extensions:
   - OverloadedStrings
   - ScopedTypeVariables
   - StandaloneDeriving
+  - TypeApplications
   - TypeFamilies
   - TypeOperators
 
@@ -30,8 +31,10 @@ ghc-options:
 
 dependencies:
   - base
+
   - bakery-core
   - bakery-shell
+
   - directory
   - filepath
   - text

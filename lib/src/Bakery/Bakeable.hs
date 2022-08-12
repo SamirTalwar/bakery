@@ -16,12 +16,14 @@ import Control.Monad (ap)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.Kind (Type)
+import Data.Text (Text)
 import Data.Typeable (Proxy (..))
 
 class (Eq a, Show a, Identifiable a) => Bakeable a where
   type Recipe a
   normalize :: a -> Baking a
   normalize = pure
+  parseName :: Text -> Baking (Maybe a)
   deriveInputs :: Proxy a -> Recipe a -> Inputs
   exists :: a -> Baking Bool
   follow :: Recipe a -> a -> Baking a
