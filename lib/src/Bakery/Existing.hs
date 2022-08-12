@@ -1,5 +1,6 @@
 module Bakery.Existing (Existing, existing) where
 
+import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Identifier
@@ -33,7 +34,7 @@ instance Bakeable a => Bakeable (Existing a) where
 instance (Identifiable a, Path a, Show a) => Path (Existing a) where
   toInputPath self@(Existing x) =
     let InputPath _ path = toInputPath x
-     in InputPath [SomeInput (Input self)] path
+     in InputPath [An (Input self)] path
 
 instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
   toArg = InputPathArg . toInputPath

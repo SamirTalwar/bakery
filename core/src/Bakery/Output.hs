@@ -1,10 +1,10 @@
 module Bakery.Output
   ( Output (..),
     Outputs,
-    SomeOutput (..),
   )
 where
 
+import Bakery.A
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
@@ -20,14 +20,9 @@ data Output a = Output
     outputAction :: Baking a
   }
 
-data SomeOutput = forall a. SomeOutput (Output a)
-
 deriving stock instance Functor Output
 
 instance Show (Output a) where
   show Output {outputId} = show outputId
 
-instance Show SomeOutput where
-  show (SomeOutput x) = show x
-
-type Outputs = [SomeOutput]
+type Outputs = [An Output]

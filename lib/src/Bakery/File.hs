@@ -1,5 +1,6 @@
 module Bakery.File (File, file) where
 
+import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Env qualified as Env
@@ -50,7 +51,7 @@ instance Bakeable File where
   follow recipe f@(File path) = liftIO $ Shell.evaluate (recipe (KnownOutputPath path)) () $> f
 
 instance Path File where
-  toInputPath f@(File path) = InputPath [SomeInput (Input f)] path
+  toInputPath f@(File path) = InputPath [An (Input f)] path
 
 instance Argument File where
   toArg = InputPathArg . toInputPath

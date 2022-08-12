@@ -8,6 +8,7 @@ module Bakery.Bakeable
   )
 where
 
+import Bakery.A
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
@@ -72,7 +73,7 @@ deriveOutputs bake = do
 
 deriveOutputs' :: Monad m => Bake m a -> m Outputs
 deriveOutputs' (Value _) = pure []
-deriveOutputs' (Recipe output) = pure [SomeOutput output]
+deriveOutputs' (Recipe output) = pure [An output]
 deriveOutputs' (Both x y) = (<>) <$> deriveOutputs' x <*> deriveOutputs' y
 
 defineRecipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a

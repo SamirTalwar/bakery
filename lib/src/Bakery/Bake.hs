@@ -4,6 +4,7 @@ module Bakery.Bake
   )
 where
 
+import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Env
@@ -36,7 +37,7 @@ actuallyBake :: BakeT Baking a -> [Text] -> Baking ()
 actuallyBake thing args = do
   outputs <- deriveOutputs thing
   logText "Outputs:"
-  mapM_ (logText . (\(SomeOutput Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
+  mapM_ (logText . (\(An Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
   logText ""
 
   if null args
@@ -62,21 +63,21 @@ actuallyBake thing args = do
         reject :: Baking a
         reject = fail $ "I don't know what " <> show text <> " is."
 
-    findTarget :: Outputs -> Id -> Baking SomeOutput
+    findTarget :: Outputs -> Id -> Baking (An Output)
     findTarget outputs target =
-      let targetOutput = List.find (\(SomeOutput Output {outputId}) -> outputId == target) outputs
+      let targetOutput = List.find (\(An Output {outputId}) -> outputId == target) outputs
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput
 
     bakeOutputs :: Outputs -> Outputs -> Baking ()
     bakeOutputs allOutputs targetOutputs = do
       requiredOutputs <- required allOutputs targetOutputs
       logText "Plan:"
-      forM_ requiredOutputs (\(SomeOutput Output {outputId}) -> logValue outputId)
+      forM_ requiredOutputs (\(An Output {outputId}) -> logValue outputId)
       logText ""
       mapM_ bakeOutput requiredOutputs
 
-    bakeOutput :: SomeOutput -> Baking ()
-    bakeOutput (SomeOutput output@Output {outputAction, outputExists}) = do
+    bakeOutput :: An Output -> Baking ()
+    bakeOutput (An output@Output {outputAction, outputExists}) = do
       logText ("Baking " <> show output <> "...")
       void outputAction
       doesExist <- outputExists
@@ -84,12 +85,12 @@ actuallyBake thing args = do
 
     required :: Outputs -> Outputs -> Baking Outputs
     required allOutputs targetOutputs = do
-      requiredTargets <- forM targetOutputs $ \targetOutput@(SomeOutput Output {outputInputs}) -> do
-        dependencies <- mapM (\(SomeInput (Input input)) -> findTarget allOutputs (identifier input)) outputInputs
+      requiredTargets <- forM targetOutputs $ \targetOutput@(An Output {outputInputs}) -> do
+        dependencies <- mapM (\(An (Input input)) -> findTarget allOutputs (identifier input)) outputInputs
         pure $ dependencies ++ [targetOutput]
       pure . List.nubBy equalById $ concat requiredTargets
       where
-        equalById = (==) `on` (\(SomeOutput Output {outputId}) -> outputId)
+        equalById = (==) `on` (\(An Output {outputId}) -> outputId)
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
 recipe = defineRecipe
