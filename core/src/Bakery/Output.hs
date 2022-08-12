@@ -30,10 +30,4 @@ instance Show (Output a) where
 instance Show SomeOutput where
   show (SomeOutput x) = show x
 
-instance Identifiable (Output a) where
-  identifier Output {outputId} = outputId
-
-instance Identifiable SomeOutput where
-  identifier (SomeOutput x) = identifier x
-
 type Outputs = [SomeOutput]

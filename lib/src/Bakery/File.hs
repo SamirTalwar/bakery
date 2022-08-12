@@ -14,6 +14,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (asks)
 import Data.Functor (($>))
 import Data.String (fromString)
+import Data.Text qualified as Text
 import Data.Typeable (Typeable)
 import System.Directory qualified as Directory
 import System.FilePath qualified as FilePath
@@ -26,7 +27,8 @@ instance Show File where
   show (File path) = path
 
 instance Identifiable File where
-  identifier (File path) = Id "file" path
+  namespace _ = Namespace "file"
+  name (File path) = Name (Text.pack path)
 
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()

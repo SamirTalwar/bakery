@@ -48,7 +48,7 @@ actuallyBake thing args = do
     bakeOutputs allOutputs targetOutputs = do
       requiredOutputs <- required allOutputs targetOutputs
       logText "Plan:"
-      forM_ requiredOutputs (logValue . identifier)
+      forM_ requiredOutputs (\(SomeOutput Output {outputId}) -> logValue outputId)
       logText ""
       mapM_ bakeOutput requiredOutputs
 
@@ -59,7 +59,7 @@ actuallyBake thing args = do
         pure $ dependencies ++ [targetOutput]
       pure . List.nubBy equalById $ concat requiredTargets
       where
-        equalById = (==) `on` identifier
+        equalById = (==) `on` (\(SomeOutput Output {outputId}) -> outputId)
 
     findTarget :: (Identifiable a, Show a) => Outputs -> a -> Baking SomeOutput
     findTarget outputs target =
@@ -67,8 +67,8 @@ actuallyBake thing args = do
        in maybe (fail $ "Cannot bake " <> show target) pure targetOutput
 
     isTarget :: Identifiable a => a -> SomeOutput -> Bool
-    isTarget target output =
-      identifier target == identifier output
+    isTarget target (SomeOutput Output {outputId}) =
+      identifier target == outputId
 
     bakeOutput :: SomeOutput -> Baking ()
     bakeOutput (SomeOutput output@Output {outputAction, outputExists}) = do

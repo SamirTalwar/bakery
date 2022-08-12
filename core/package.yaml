@@ -15,6 +15,7 @@ default-extensions:
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - NamedFieldPuns
+  - ScopedTypeVariables
   - StandaloneDeriving
 
 ghc-options:
@@ -23,6 +24,7 @@ ghc-options:
 
 dependencies:
   - base
+  - text
   - transformers
 
 library:

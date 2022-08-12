@@ -32,7 +32,7 @@ for package in "${haskell_packages[@]}"; do
 done
 
 note 'cabal build all'
-cabal build all
+cabal build -j all
 
 note 'smoke'
 (

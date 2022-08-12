@@ -18,6 +18,7 @@ default-extensions:
   - ImportQualifiedPost
   - LambdaCase
   - NamedFieldPuns
+  - OverloadedStrings
   - ScopedTypeVariables
   - StandaloneDeriving
   - TypeFamilies

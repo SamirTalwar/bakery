@@ -6,6 +6,7 @@ import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (InputPath (..), Path (..))
+import Data.Data (Proxy (..))
 
 newtype Existing a = Existing a
   deriving newtype (Eq, Show)
@@ -14,6 +15,8 @@ existing :: Bakeable a => a -> BakeT Baking (Existing a)
 existing x = defineRecipe (Existing x) x
 
 instance Identifiable a => Identifiable (Existing a) where
+  namespace _ = namespace (Proxy :: Proxy a)
+  name (Existing x) = name x
   identifier (Existing x) = identifier x
 
 instance Bakeable a => Bakeable (Existing a) where
