@@ -1,24 +1,17 @@
 module Bakery.Existing (Existing, existing) where
 
 import Bakery.Bakeable
+import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Output (Output (..))
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (InputPath (..), Path (..))
 
 newtype Existing a = Existing a
   deriving newtype (Eq, Show)
 
-existing :: (Monad m, Bakeable a) => a -> Bake m (Existing a)
-existing x =
-  Bake . pure . Recipe $
-    Output
-      (identifier x)
-      (Existing x)
-      []
-      (exists (Existing x))
-      (follow x (Existing x))
+existing :: Bakeable a => a -> BakeT Baking (Existing a)
+existing x = defineRecipe (Existing x) x
 
 instance Identifiable a => Identifiable (Existing a) where
   identifier (Existing x) = identifier x

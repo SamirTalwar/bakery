@@ -2,8 +2,8 @@
 
 module Bakery.Bakeable
   ( Bakeable (..),
-    Bake (..),
-    Bake' (..),
+    BakeT (..),
+    defineRecipe,
     deriveOutputs,
   )
 where
@@ -26,15 +26,15 @@ class (Eq a, Show a, Identifiable a) => Bakeable a where
   exists :: a -> Baking Bool
   follow :: Recipe a -> a -> Baking a
 
-newtype Bake m a = Bake {runBake :: m (Bake' m a)}
+newtype BakeT m a = BakeT {runBake :: m (Bake m a)}
 
-data Bake' (m :: Type -> Type) (a :: Type) where
-  Value :: a -> Bake' m a
-  Recipe :: Output a -> Bake' m a
-  Both :: Bake' m a -> Bake' m b -> Bake' m b
+data Bake (m :: Type -> Type) (a :: Type) where
+  Value :: a -> Bake m a
+  Recipe :: Output a -> Bake m a
+  Both :: Bake m a -> Bake m b -> Bake m b
 
-instance Monad m => Functor (Bake m) where
-  fmap f bake = Bake $ do
+instance Monad m => Functor (BakeT m) where
+  fmap f bake = BakeT $ do
     baked <- runBake bake
     pure $ fmap' baked
     where
@@ -42,33 +42,44 @@ instance Monad m => Functor (Bake m) where
       fmap' (Recipe output) = Recipe (fmap f output)
       fmap' (Both x y) = Both x (fmap' y)
 
-instance Monad m => Applicative (Bake m) where
-  pure = Bake . pure . Value
+instance Monad m => Applicative (BakeT m) where
+  pure = BakeT . pure . Value
   (<*>) = ap
 
-instance Monad m => Monad (Bake m) where
-  bake >>= f = Bake do
+instance Monad m => Monad (BakeT m) where
+  bake >>= f = BakeT do
     baked <- runBake bake
     runBake $ bind' baked
     where
       bind' (Value x) = f x
-      bind' recipe@(Recipe (Output {outputTarget})) =
-        Bake $ Both recipe <$> runBake (f outputTarget)
+      bind' r@(Recipe (Output {outputTarget})) =
+        BakeT $ Both r <$> runBake (f outputTarget)
       bind' (Both x y) =
-        Bake $ Both x <$> runBake (bind' y)
+        BakeT $ Both x <$> runBake (bind' y)
 
-instance MonadTrans Bake where
-  lift = Bake . (Value <$>)
+instance MonadTrans BakeT where
+  lift = BakeT . (Value <$>)
 
-instance MonadIO (Bake IO) where
+instance MonadIO (BakeT IO) where
   liftIO = lift
 
-deriveOutputs :: Monad m => Bake m a -> m Outputs
+deriveOutputs :: Monad m => BakeT m a -> m Outputs
 deriveOutputs bake = do
   baked <- runBake bake
   deriveOutputs' baked
 
-deriveOutputs' :: Monad m => Bake' m a -> m Outputs
+deriveOutputs' :: Monad m => Bake m a -> m Outputs
 deriveOutputs' (Value _) = pure []
 deriveOutputs' (Recipe output) = pure [SomeOutput output]
 deriveOutputs' (Both x y) = (<>) <$> deriveOutputs' x <*> deriveOutputs' y
+
+defineRecipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
+defineRecipe target recipe' = BakeT do
+  normalized <- normalize target
+  pure . Recipe $
+    Output
+      (identifier normalized)
+      normalized
+      (deriveInputs (Proxy :: Proxy a) recipe')
+      (exists normalized)
+      (follow recipe' normalized)

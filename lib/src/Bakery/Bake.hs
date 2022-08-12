@@ -16,12 +16,11 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader qualified as Reader
 import Data.Function (on)
 import Data.List qualified as List
-import Data.Typeable (Proxy (..))
 import System.Directory qualified as Directory
 import System.Environment (getArgs, lookupEnv)
 import System.IO (hPutStrLn, stderr)
 
-bake :: Bake Baking a -> IO ()
+bake :: BakeT Baking a -> IO ()
 bake thing = do
   args <- getArgs
   logger <- fmap (const stderr) <$> lookupEnv "BAKE_LOG"
@@ -30,7 +29,7 @@ bake thing = do
   flip Reader.runReaderT env . runBaking $
     actuallyBake thing args
 
-actuallyBake :: Bake Baking a -> [String] -> Baking ()
+actuallyBake :: BakeT Baking a -> [String] -> Baking ()
 actuallyBake thing args = do
   outputs <- deriveOutputs thing
   logText "Outputs:"
@@ -78,16 +77,8 @@ actuallyBake thing args = do
       doesExist <- outputExists
       unless doesExist . fail $ "Did not produce " <> show output <> "."
 
-recipe :: forall a. Bakeable a => a -> Recipe a -> Bake Baking a
-recipe target recipe' = Bake do
-  normalized <- normalize target
-  pure . Recipe $
-    Output
-      (identifier normalized)
-      normalized
-      (deriveInputs (Proxy :: Proxy a) recipe')
-      (exists normalized)
-      (follow recipe' normalized)
+recipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
+recipe = defineRecipe
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()
