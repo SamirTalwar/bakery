@@ -15,7 +15,8 @@ import Bakery.Output
 import Control.Monad (forM, forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader qualified as Reader
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap)
+import Data.Data (Proxy (..))
 import Data.Function (on)
 import Data.List qualified as List
 import Data.Text (Text)
@@ -55,10 +56,10 @@ actuallyBake thing args = do
       case Text.findIndex (== ':') text of
         Nothing -> identifier <$> (maybe reject pure =<< parseName @Bakery.File.File text)
         Just separatorIndex ->
-          let (targetNamespace, targetName) = second (Text.drop 1) $ Text.splitAt separatorIndex text
-           in case targetNamespace of
-                "file" -> identifier <$> (maybe reject pure =<< parseName @Bakery.File.File targetName)
-                _ -> reject
+          let (targetNamespace, targetName) = bimap Namespace (Text.drop 1) $ Text.splitAt separatorIndex text
+           in case bakeable targetNamespace of
+                Nothing -> reject
+                Just isBakeable -> parseName' isBakeable targetName
       where
         reject :: Baking a
         reject = fail $ "I don't know what " <> show text <> " is."
@@ -94,6 +95,22 @@ actuallyBake thing args = do
 
 recipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
 recipe = defineRecipe
+
+bakeable :: Namespace -> Maybe (Is Bakeable)
+bakeable (Namespace "file") = Just $ Is @Bakery.File.File
+bakeable _ = Nothing
+
+-- HLint incorrectly tries to remove brackets around '(Is @b)'.
+{- HLINT ignore parseName' "Redundant bracket" -}
+
+-- Ormolu doesn't know how to deal with type applications in constructors yet.
+parseName' :: Is Bakeable -> Text -> Baking Id
+{- ORMOLU_DISABLE -}
+parseName' (Is @a) targetName = identifier <$> (maybe reject pure =<< parseName @a targetName)
+  where
+    namespaceString = Text.unpack $ unNamespace $ namespace (Proxy @a)
+    reject = fail $ show targetName <> " cannot be parsed in the namespace \"" <> namespaceString <> "\"."
+{- ORMOLU_ENABLE -}
 
 {-# ANN logText ("HLint: ignore Avoid lambda using `infix`" :: String) #-}
 logText :: String -> Baking ()

@@ -159,6 +159,6 @@ tests:
       ./bake.hs file:
     exit-status: 1
     stderr: |
-      bake.hs: user error (I don't know what "file:" is.)
+      bake.hs: user error ("" cannot be parsed in the namespace "file".)
     revert:
       - .
