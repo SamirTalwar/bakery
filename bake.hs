@@ -18,11 +18,13 @@ main = bake do
       src <- existing $ glob "src/**"
 
       packageFile <- existing $ file "package.yaml"
-      cabalFile <- recipe (file "bakery-core.cabal") $ const do
+      packageDescription <- parse packageFile
+      let name = packageDescription .: "name"
+      cabalFile <- recipe (file (name <> ".cabal")) $ const do
         input src
         run "hpack" packageFile
 
-      named "build" $ recipe exec do
+      recipe (exec "build") do
         input cabalFile
         run "cabal" "build"
 
@@ -30,30 +32,30 @@ main = bake do
   each_ examples $ \example ->
     inDirectory example do
       let cabalName = "example-" <> basename example
-      named "build" $ recipe exec do
+      recipe (exec "build") do
         run "cabal" "build" cabalName
-      named "run" $ recipe exec do
+      recipe (exec "run") do
         run "cabal" "run" cabalName
 
-      named "smoke" $ recipe exec do
+      recipe (exec "smoke") do
         input build
         with binPath do
           run "cabal" "exec" "--" "smoke" "."
 
   smoke <- do
     smokeFiles <- existing $ glob "examples/*/smoke.yaml"
-    named "smoke" $ recipe exec do
+    recipe (exec "smoke") do
       input libraries
       with binPath do
         run "cabal" "exec" "--" "smoke" smokeFiles
 
   srcFiles <- existing $ glob "src/**"
-  hlint <- named "hlint" $ recipe exec do
+  hlint <- recipe (exec "hlint") do
     run "hlint" srcFiles
-  ormolu <- named "ormolu" $ recipe ormolu do
+  ormolu <- recipe (exec "ormolu") do
     run "ormolu" "--mode=check" srcFiles
 
-  named "check" $ recipe group do
+  recipe (group "check") do
     smoke
     hlint
     ormolu
