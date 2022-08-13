@@ -5,6 +5,18 @@ shell:
   - -e
 
 tests:
+  - name: exec/true
+    command: |
+      ./bake.hs :true
+    stdout: ""
+
+  - name: exec/false
+    command: |
+      ./bake.hs :false
+    exit-status: 1
+    stderr: |
+      bake.hs: user error (The command failed with exit code ExitFailure 1.)
+
   - name: exec/count
     command: |
       ./bake.hs

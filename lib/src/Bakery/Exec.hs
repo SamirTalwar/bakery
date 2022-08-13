@@ -19,7 +19,7 @@ exec :: String -> Exec
 exec = Exec . Text.pack
 
 instance Identifiable Exec where
-  namespace _ = Namespace "exec"
+  namespace _ = Namespace ""
   name (Exec execName) = Name execName
 
 instance Bakeable Exec where

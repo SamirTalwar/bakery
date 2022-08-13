@@ -11,8 +11,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 ### Program semantics
 
 - Run within the same directory as the _bake.hs_ file.
-- Invoke `file` tasks with a `file:` prefix.
-- Invoke `exec` tasks by name.
 
 ### Inputs
 
@@ -44,6 +42,11 @@ You should also be able to use an output _temporarily_ in producing another outp
 - a Nix environment
 - a running process
 - a Docker container
+
+Other things to do:
+
+- Validate names.
+- Verify that there are no name collisions.
 
 ### Shell
 

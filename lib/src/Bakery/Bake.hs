@@ -8,6 +8,7 @@ import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Env
+import Bakery.Exec qualified
 import Bakery.File qualified
 import Bakery.Identifier
 import Bakery.Input
@@ -26,6 +27,7 @@ import System.Environment (getArgs, lookupEnv)
 import System.IO (hPutStrLn, stderr)
 
 bakeable :: Namespace -> Maybe (Is Bakeable)
+bakeable (Namespace "") = Just $ Is @Bakery.Exec.Exec
 bakeable (Namespace "file") = Just $ Is @Bakery.File.File
 bakeable _ = Nothing
 
