@@ -53,6 +53,8 @@ Other things to do:
 - Support multi-line shell scripts.
   - It's OK, [stream processors are monadic][stream-processors/streamprocessors/monadic.agda].
 - Add `cd`.
+- Run commands on each side of a pipe in parallel.
+- Stream data through pipes, instead of collecting it.
 
 ### Repetition
 
