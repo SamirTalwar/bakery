@@ -31,7 +31,7 @@ bakeable (Namespace "") = Just $ Is @Bakery.Exec.Exec
 bakeable (Namespace "file") = Just $ Is @Bakery.File.File
 bakeable _ = Nothing
 
-recipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
+recipe :: Bakeable a => a -> Recipe a -> BakeT Baking a
 recipe = defineRecipe
 
 bake :: BakeT Baking a -> IO ()

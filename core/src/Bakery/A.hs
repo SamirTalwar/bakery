@@ -10,9 +10,9 @@ module Bakery.A where
 import Data.Kind (Constraint, Type)
 
 data A (f :: Type -> Type) where
-  A :: forall f a. f a -> A f
+  A :: f a -> A f
 
-instance forall f. (forall a. Show (f a)) => Show (A f) where
+instance (forall a. Show (f a)) => Show (A f) where
   show (A x) = show x
 
 type An = A
