@@ -1,4 +1,4 @@
-module Bakery.Exec (Exec, exec) where
+module Bakery.Output.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Identifier

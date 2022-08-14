@@ -92,6 +92,7 @@
           haskellPackages.haskell-language-server
           haskellPackages.hlint
           haskellPackages.hpack
+          haskellPackages.hspec-discover
           haskellPackages.ormolu
           smoke.outputs.packages."${system}".default
         ];

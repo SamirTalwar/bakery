@@ -1,9 +1,8 @@
-module Bakery.File (File, file) where
+module Bakery.Output.File.Internal (File (..), file) where
 
 import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
-import Bakery.Env qualified as Env
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell.AST (type (#>))
@@ -12,7 +11,6 @@ import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Inputs qualified as Shell
 import Bakery.Shell.Path (InputPath (..), OutputPath (..), Path (..))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (asks)
 import Data.Functor (($>))
 import Data.String (fromString)
 import Data.Text qualified as Text
@@ -35,7 +33,8 @@ instance Identifiable File where
 instance Bakeable File where
   type Recipe File = OutputPath -> () #> ()
   normalize (File path) = Baking $ do
-    root <- asks Env.root
+    -- we probably need to reimplement this with regards to 'Env.root'
+    root <- liftIO Directory.getCurrentDirectory
     canonicalPath <- liftIO $ Directory.canonicalizePath path
     let relativePath = FilePath.makeRelative root canonicalPath
     if FilePath.isRelative relativePath

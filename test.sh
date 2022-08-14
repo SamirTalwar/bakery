@@ -34,6 +34,9 @@ done
 note 'cabal build all'
 cabal build -j all
 
+note 'cabal test all'
+cabal test -j all
+
 note 'smoke'
 (
   PATH="${PWD}/bin:${PATH}"

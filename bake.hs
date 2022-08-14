@@ -24,9 +24,15 @@ main = bake do
         input src
         run "hpack" packageFile
 
-      recipe (exec "build") do
+      build <- recipe (exec "build") do
         input cabalFile
-        run "cabal" "build"
+        run "cabal" "build" "-j"
+
+      recipe (exec "test") do
+        input build
+        run "cabal test" "-j"
+
+      pure build
 
   examples <- glob ("examples/*") {only = Glob.directories}
   each_ examples $ \example ->

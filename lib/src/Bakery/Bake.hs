@@ -8,11 +8,11 @@ import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Env
-import Bakery.Exec qualified
-import Bakery.File qualified
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Output
+import Bakery.Output.Exec qualified
+import Bakery.Output.File qualified
 import Control.Monad (forM, forM_, unless, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader qualified as Reader
@@ -27,8 +27,8 @@ import System.Environment (getArgs, lookupEnv)
 import System.IO (hPutStrLn, stderr)
 
 bakeable :: Namespace -> Maybe (Is Bakeable)
-bakeable (Namespace "") = Just $ Is @Bakery.Exec.Exec
-bakeable (Namespace "file") = Just $ Is @Bakery.File.File
+bakeable (Namespace "") = Just $ Is @Bakery.Output.Exec.Exec
+bakeable (Namespace "file") = Just $ Is @Bakery.Output.File.File
 bakeable _ = Nothing
 
 recipe :: Bakeable a => a -> Recipe a -> BakeT Baking a
@@ -63,7 +63,7 @@ actuallyBake thing args = do
 parseTarget :: Text -> Baking Id
 parseTarget text =
   case Text.findIndex (== ':') text of
-    Nothing -> identifier <$> (maybe reject pure =<< parseName @Bakery.File.File text)
+    Nothing -> identifier <$> (maybe reject pure =<< parseName @Bakery.Output.File.File text)
     Just separatorIndex ->
       let (targetNamespace, targetName) = bimap Namespace (Text.drop 1) $ Text.splitAt separatorIndex text
        in case bakeable targetNamespace of
