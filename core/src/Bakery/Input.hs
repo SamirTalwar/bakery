@@ -3,6 +3,7 @@
 module Bakery.Input
   ( Input (..),
     Inputs,
+    HasInputs (..),
   )
 where
 
@@ -16,3 +17,12 @@ instance Show (Input a) where
   show (Input x) = show x
 
 type Inputs = [An Input]
+
+class HasInputs a where
+  getInputs :: a -> Inputs
+
+instance HasInputs String where
+  getInputs = const []
+
+instance HasInputs Integer where
+  getInputs = const []

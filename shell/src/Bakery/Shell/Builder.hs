@@ -7,8 +7,9 @@ module Bakery.Shell.Builder
   )
 where
 
+import Bakery.Input (HasInputs (..))
 import Bakery.Shell.AST (Shell (..), type (#>) (..))
-import Bakery.Shell.Path (InputPath (..), OutputPath, Path (..))
+import Bakery.Shell.Path (OutputPath, Path (..))
 import Bakery.Shell.Pipe (StdIn, StdOut)
 
 infixr 5 |>
@@ -23,10 +24,8 @@ nullStdIn = Pipe [] NullStdIn
 nullStdOut :: StdOut #> ()
 nullStdOut = Pipe [] NullStdOut
 
-readF :: Path a => a -> () #> StdIn
-readF input =
-  let InputPath i path = toInputPath input
-   in Pipe i (Read path)
+readF :: (HasInputs a, Path a) => a -> () #> StdIn
+readF input = Pipe (getInputs input) (Read (toPath input))
 
 writeF :: OutputPath -> StdOut #> ()
 writeF = Pipe [] . Write

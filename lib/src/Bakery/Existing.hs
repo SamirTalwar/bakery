@@ -6,7 +6,7 @@ import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell.Argument (Arg (..), Argument (..))
-import Bakery.Shell.Path (InputPath (..), Path (..))
+import Bakery.Shell.Path (Path (..))
 import Data.Data (Proxy (..))
 
 newtype Existing a = Existing a
@@ -31,11 +31,11 @@ instance Bakeable a => Bakeable (Existing a) where
       True -> pure target
       False -> fail ("Expected " <> show recipe <> " to exist.")
 
+instance (Identifiable a, Show a) => HasInputs (Existing a) where
+  getInputs self = [An (Input self)]
+
 instance (Identifiable a, Path a, Show a) => Path (Existing a) where
-  toInputPath self@(Existing x) =
-    let InputPath _ path = toInputPath x
-     in InputPath [An (Input self)] path
+  toPath (Existing x) = toPath x
 
 instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
-  toArg = InputPathArg . toInputPath
-  argInputs self = [An (Input self)]
+  toArg = StringArg . toPath

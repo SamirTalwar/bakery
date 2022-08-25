@@ -1,17 +1,11 @@
 module Bakery.Shell.Path
-  ( InputPath (..),
-    OutputPath (..),
+  ( OutputPath (..),
     Path (..),
     unknownOutputPathFailure,
   )
 where
 
-import Bakery.Input (Inputs)
-
-data InputPath where
-  InputPath :: Inputs -> FilePath -> InputPath
-
-deriving stock instance Show InputPath
+import Bakery.Input (HasInputs (..))
 
 data OutputPath where
   KnownOutputPath :: FilePath -> OutputPath
@@ -19,8 +13,11 @@ data OutputPath where
 
 deriving stock instance Show OutputPath
 
+instance HasInputs OutputPath where
+  getInputs = const []
+
 class Path a where
-  toInputPath :: a -> InputPath
+  toPath :: a -> FilePath
 
 unknownOutputPathFailure :: String
 unknownOutputPathFailure = "INTERNAL ERROR: Cannot write to an unknown path."
