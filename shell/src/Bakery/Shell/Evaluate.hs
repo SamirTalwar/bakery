@@ -1,8 +1,8 @@
 module Bakery.Shell.Evaluate (evaluate) where
 
-import Bakery.Shell.AST (type (#>) (..))
+import Bakery.Shell.AST (Shell (..), type (#>) (..))
 import Bakery.Shell.Argument (fromArg)
-import Bakery.Shell.Path (InputPath (..), OutputPath (..), unknownOutputPathFailure)
+import Bakery.Shell.Path (OutputPath (..), unknownOutputPathFailure)
 import Bakery.Shell.Pipe (StdIn (..), StdOut (..))
 import Control.Exception (catch)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -12,12 +12,15 @@ import GHC.IO.Handle (hClose)
 import System.Process.Typed qualified as Process
 
 -- The argument order is important, so that 'a' is constrained by 'a #> b'.
-evaluate :: a #> b -> a -> IO b
-evaluate NullStdIn () =
+evaluate :: i #> o -> i -> IO o
+evaluate (Pipe _ shell) = evaluateShell shell
+
+evaluateShell :: Shell i o -> i -> IO o
+evaluateShell NullStdIn () =
   pure $ StdIn Text.empty
-evaluate NullStdOut (StdOut _) =
+evaluateShell NullStdOut (StdOut _) =
   pure ()
-evaluate (Run (cmd :| args)) (StdIn stdin) =
+evaluateShell (Run (cmd :| args)) (StdIn stdin) =
   let config =
         Process.setStdin Process.createPipe $
           Process.setStdout Process.createPipe $
@@ -33,11 +36,11 @@ evaluate (Run (cmd :| args)) (StdIn stdin) =
             )
         `catch` \(Process.ExitCodeException exitCode _ _ _) ->
           fail $ "The command failed with exit code " <> show exitCode <> "."
-evaluate (Read (InputPath _ path)) () =
+evaluateShell (Read path) () =
   StdIn <$> Text.IO.readFile path
-evaluate (Write (KnownOutputPath path)) (StdOut text) =
+evaluateShell (Write (KnownOutputPath path)) (StdOut text) =
   Text.IO.writeFile path text
-evaluate (Write UnknownOutputPath) (StdOut _) =
+evaluateShell (Write UnknownOutputPath) (StdOut _) =
   fail unknownOutputPathFailure
-evaluate (Compose a b) i =
-  evaluate a i >>= evaluate b
+evaluateShell (Compose a b) i =
+  evaluateShell a i >>= evaluateShell b

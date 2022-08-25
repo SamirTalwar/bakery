@@ -5,6 +5,7 @@ module Bakery.Shell.Argument
   )
 where
 
+import Bakery.Input (Inputs)
 import Bakery.Shell.Path (InputPath (..), OutputPath (..), unknownOutputPathFailure)
 
 data Arg where
@@ -17,6 +18,8 @@ deriving stock instance Show Arg
 
 class Argument a where
   toArg :: a -> Arg
+  argInputs :: a -> Inputs
+  argInputs = const []
 
 instance Argument String where
   toArg = StringArg

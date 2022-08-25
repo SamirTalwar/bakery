@@ -38,3 +38,4 @@ instance (Identifiable a, Path a, Show a) => Path (Existing a) where
 
 instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
   toArg = InputPathArg . toInputPath
+  argInputs self = [An (Input self)]

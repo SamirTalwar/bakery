@@ -7,23 +7,26 @@ module Bakery.Shell.Builder
   )
 where
 
-import Bakery.Shell.AST (type (#>) (..))
-import Bakery.Shell.Path (OutputPath, Path (..))
+import Bakery.Shell.AST (Shell (..), type (#>) (..))
+import Bakery.Shell.Path (InputPath (..), OutputPath, Path (..))
 import Bakery.Shell.Pipe (StdIn, StdOut)
 
 infixr 5 |>
 
 (|>) :: a #> b -> b #> c -> a #> c
-(|>) = Compose
+Pipe aInputs a |> Pipe bInputs b =
+  Pipe (aInputs <> bInputs) $ Compose a b
 
 nullStdIn :: () #> StdIn
-nullStdIn = NullStdIn
+nullStdIn = Pipe [] NullStdIn
 
 nullStdOut :: StdOut #> ()
-nullStdOut = NullStdOut
+nullStdOut = Pipe [] NullStdOut
 
 readF :: Path a => a -> () #> StdIn
-readF = Read . toInputPath
+readF input =
+  let InputPath i path = toInputPath input
+   in Pipe i (Read path)
 
 writeF :: OutputPath -> StdOut #> ()
-writeF = Write
+writeF = Pipe [] . Write
