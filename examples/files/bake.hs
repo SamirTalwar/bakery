@@ -8,28 +8,28 @@ main = bake do
   existing <- existing $ file "existing.file"
 
   one <- recipe (file "one.file") $ \output ->
-    nullStdIn |> run "echo" "one" |> writeF output
+    run "echo" "one" |> writeF output
 
   two <- recipe (file "two.file") $ \output ->
-    nullStdIn |> run "echo" "two" |> writeF output
+    run "echo" "two" |> writeF output
 
   recipe (file "cat-existing.file") $ \output ->
-    nullStdIn |> run "cat" existing one two |> writeF output
+    run "cat" existing one two |> writeF output
 
   recipe (file "cat.file") $ \output ->
-    nullStdIn |> run "cat" one two |> writeF output
+    run "cat" one two |> writeF output
 
   recipe (file "copy.file") $ \output ->
-    nullStdIn |> run "cp" existing output |> nullStdOut
+    run "cp" existing output
 
   recipe (file "non-existent.file") $ \output ->
-    nullStdIn |> run "cat" one |> nullStdOut
+    run "cat" one
 
   recipe (file "../files/./indirect.file") $ \output ->
-    nullStdIn |> run "echo" "this got there eventually" |> writeF output
+    run "echo" "this got there eventually" |> writeF output
 
   recipe (file $ thisDirectory <> "/../tmp/output.file") $ \output ->
-    nullStdIn |> run "echo" "This is a test." |> writeF output
+    run "echo" "This is a test." |> writeF output
 
   recipe (file $ thisDirectory <> "/../tmp/non-existent.file") $ \output ->
-    nullStdIn |> run "cat" |> nullStdOut
+    run "cat"

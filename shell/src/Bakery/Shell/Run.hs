@@ -3,6 +3,7 @@ module Bakery.Shell.Run (run) where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.AST (Shell (..), type (#>) (..))
 import Bakery.Shell.Argument (Arg (..), Argument (..))
+import Bakery.Shell.Builder (nullStdIn, nullStdOut, (|>))
 import Bakery.Shell.Pipe (StdIn, StdOut)
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
@@ -19,3 +20,12 @@ instance (Argument a, HasInputs a, RunType r) => RunType (a -> r) where
 
 instance RunType (StdIn #> StdOut) where
   run' inputs args = Pipe (List.reverse inputs) $ Run (NonEmpty.reverse args)
+
+instance RunType (StdIn #> ()) where
+  run' inputs args = run' inputs args |> nullStdOut
+
+instance RunType (() #> StdOut) where
+  run' inputs args = nullStdIn |> run' inputs args
+
+instance RunType (() #> ()) where
+  run' inputs args = nullStdIn |> run' inputs args |> nullStdOut
