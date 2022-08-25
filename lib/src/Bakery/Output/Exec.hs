@@ -6,9 +6,9 @@ import Bakery.Shell.AST (type (#>) (..))
 import Bakery.Shell.Evaluate qualified as Shell
 import Bakery.Shell.Pipe (StdIn (..), StdOut (..))
 import Control.Monad.IO.Class (liftIO)
+import Data.ByteString qualified as ByteString
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Data.Text.IO qualified as Text.IO
 import Data.Typeable (Typeable)
 
 newtype Exec = Exec Text
@@ -27,6 +27,6 @@ instance Bakeable Exec where
   deriveInputs _ (Pipe inputs _) = inputs
   exists _ = pure True
   follow recipe target = do
-    StdOut stdout <- liftIO $ Shell.evaluate recipe (StdIn mempty)
-    liftIO $ Text.IO.putStr stdout
+    StdOut stdout <- liftIO $ Shell.evaluate recipe mempty
+    liftIO $ ByteString.putStr stdout
     pure target

@@ -4,10 +4,10 @@ module Bakery.Shell.Pipe
   )
 where
 
-import Data.Text (Text)
+import Data.ByteString (ByteString)
 
-newtype StdIn where
-  StdIn :: Text -> StdIn
+newtype StdIn = StdIn {unStdIn :: ByteString}
+  deriving (Eq, Semigroup, Monoid)
 
-newtype StdOut where
-  StdOut :: Text -> StdOut
+newtype StdOut = StdOut {unStdOut :: ByteString}
+  deriving (Eq, Semigroup, Monoid)

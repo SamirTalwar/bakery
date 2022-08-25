@@ -35,6 +35,7 @@ dependencies:
   - bakery-core
   - bakery-shell
 
+  - bytestring
   - directory
   - filepath
   - text

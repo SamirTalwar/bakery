@@ -28,9 +28,9 @@ ghc-options:
 dependencies:
   - base
   - bakery-core
+  - bytestring
   - directory
-  - text
-  - transformers
+  - mtl
   - typed-process
 
 library:
