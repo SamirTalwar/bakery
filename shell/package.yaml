@@ -43,7 +43,8 @@ tests:
     source-dirs:
       - test
     dependencies:
-      - base
-      - hspec
-
       - bakery-shell
+      - base
+      - hedgehog
+      - hspec
+      - hspec-hedgehog

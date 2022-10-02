@@ -15,10 +15,12 @@ module Bakery.Shell.Stream
     demand,
 
     -- * Converters
+    fromList,
     toListM,
   )
 where
 
+import Data.Functor ((<&>))
 import Data.Kind (Type)
 
 -- | 'Stream' models a lazy, effectful sequence.
@@ -46,6 +48,24 @@ value #: next = stream $ value :# next
 -- | Demands a value in order to produce a stream.
 demand :: Applicative m => (i -> Stream i m o) -> Stream i m o
 demand onNext = stream $ Demand onNext
+
+instance Monad m => Semigroup (Stream' i m o) where
+  Stop <> y' = y'
+  value :# Stream next <> y = value :# Stream (next <&> (<> y))
+  Demand onNext <> y = Demand \value -> Stream (runStream (onNext value) <&> (<> y))
+
+instance Monad m => Semigroup (Stream i m o) where
+  Stream x <> Stream y = Stream $ (<>) <$> x <*> y
+
+instance Monad m => Monoid (Stream' i m o) where
+  mempty = Stop
+
+instance Monad m => Monoid (Stream i m o) where
+  mempty = stream mempty
+
+-- | Converts a list to a producer stream.
+fromList :: Monad m => [o] -> Stream () m o
+fromList = foldr (#:) stop
 
 -- | Effectfully converts a producer stream to a list.
 toListM :: Monad m => Stream () m o -> m [o]
