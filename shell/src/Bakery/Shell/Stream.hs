@@ -7,7 +7,9 @@
 -- "Representations of Stream Processors Using Nested Fixed Points".
 -- Link: https://arxiv.org/abs/0905.4813
 module Bakery.Shell.Stream
-  ( Stream (..),
+  ( -- * Types
+    Stream (..),
+    Producer,
 
     -- * Constructors
     stop,
@@ -23,6 +25,7 @@ where
 import Control.Monad (ap, (>=>))
 import Data.Functor ((<&>))
 import Data.Kind (Type)
+import Data.Void (Void)
 
 -- | 'Stream' models a lazy, effectful sequence.
 type Stream :: Type -> (Type -> Type) -> Type -> Type
@@ -32,6 +35,9 @@ data Stream' (i :: Type) (m :: Type -> Type) (o :: Type) where
   Stop :: Stream' i m o
   (:#) :: o -> Stream i m o -> Stream' i m o
   Demand :: (i -> Stream i m o) -> Stream' i m o
+
+type Producer :: (Type -> Type) -> Type -> Type
+type Producer = Stream Void
 
 stream :: Applicative m => Stream' i m o -> Stream i m o
 stream = Stream . pure
@@ -81,13 +87,13 @@ instance Monad m => Monad (Stream i m) where
       Demand onNext -> pure $ Demand (onNext >=> f)
 
 -- | Converts a list to a producer stream.
-fromList :: Monad m => [o] -> Stream () m o
+fromList :: Monad m => [o] -> Stream Void m o
 fromList = foldr (#:) stop
 
 -- | Effectfully converts a producer stream to a list.
-toListM :: Monad m => Stream () m o -> m [o]
+toListM :: Monad m => Stream Void m o -> m [o]
 toListM (Stream s) =
   s >>= \case
     Stop -> pure []
     value :# next -> (value :) <$> toListM next
-    Demand onNext -> toListM $ onNext ()
+    Demand _ -> error "Cannot demand a Void value"

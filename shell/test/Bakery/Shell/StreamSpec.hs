@@ -21,14 +21,14 @@ spec :: Spec
 spec = do
   describe "an non-effectful stream" do
     it "can be processed" do
-      let xs :: Stream () Identity Int = 1 #: 2 #: 3 #: stop
+      let xs :: Producer Identity Int = 1 #: 2 #: 3 #: stop
       let output = runIdentity $ toListM xs
       output `shouldBe` [1, 2, 3]
 
     it "concatenates" do
-      let as :: Stream () Identity Int = 1 #: 2 #: 3 #: stop
-      let bs :: Stream () Identity Int = mempty
-      let cs :: Stream () Identity Int = 4 #: 5 #: 6 #: stop
+      let as :: Producer Identity Int = 1 #: 2 #: 3 #: stop
+      let bs :: Producer Identity Int = mempty
+      let cs :: Producer Identity Int = 4 #: 5 #: 6 #: stop
       toList (as <> bs <> cs) `shouldBe` [1 .. 6]
 
     it "follows the monoid associativity law" $ hedgehog do
@@ -90,7 +90,7 @@ spec = do
       let g y = y #: stop
       toList (xs >>= \x -> f x >>= g) === toList ((xs >>= f) >>= g)
 
-toList :: Stream () Identity o -> [o]
+toList :: Producer Identity o -> [o]
 toList = runIdentity . toListM
 
 genIntList :: Gen [Int]
