@@ -23,6 +23,7 @@ module Bakery.Shell.Stream
 where
 
 import Control.Monad (ap, (>=>))
+import Control.Monad.Trans (MonadTrans (..))
 import Data.Functor ((<&>))
 import Data.Kind (Type)
 import Data.Void (Void)
@@ -85,6 +86,9 @@ instance Monad m => Monad (Stream i m) where
       Stop -> pure Stop
       value :# next -> (<>) <$> runStream (f value) <*> runStream (next >>= f)
       Demand onNext -> pure $ Demand (onNext >=> f)
+
+instance MonadTrans (Stream i) where
+  lift x = Stream $ (:#) <$> x <*> pure stop
 
 -- | Converts a list to a producer stream.
 fromList :: Monad m => [o] -> Stream Void m o

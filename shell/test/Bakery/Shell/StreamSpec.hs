@@ -4,6 +4,7 @@
 module Bakery.Shell.StreamSpec (spec) where
 
 import Bakery.Shell.Stream
+import Control.Monad.Trans (lift)
 import Data.Functor.Identity (Identity (..))
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
@@ -91,6 +92,15 @@ spec = do
       let f y = y #: y * 2 #: y #: stop
       let g y = y #: stop
       toList (xs >>= \x -> f x >>= g) === toList ((xs >>= f) >>= g)
+
+    it "follows the monad transformer identity law" $ hedgehog do
+      x <- forAll $ Gen.int Range.linearBounded
+      toList (lift (pure x)) === toList (pure x)
+
+    it "follows the monad transformer composition law" $ hedgehog do
+      x <- forAll $ Identity <$> Gen.int Range.linearBounded
+      let f y = pure (y * 2)
+      toList (lift (x >>= f)) === toList (lift x >>= (lift . f))
 
 toList :: Producer Identity o -> [o]
 toList = runIdentity . toListM
