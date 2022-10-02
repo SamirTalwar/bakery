@@ -20,6 +20,7 @@ module Bakery.Shell.Stream
   )
 where
 
+import Control.Monad (ap, (>=>))
 import Data.Functor ((<&>))
 import Data.Kind (Type)
 
@@ -40,7 +41,7 @@ stop :: Applicative m => Stream i m o
 stop = stream Stop
 
 -- | Prepends a value to an existing stream.
-infixr 7 #:
+infixr 5 #:
 
 (#:) :: Applicative m => o -> Stream i m o -> Stream i m o
 value #: next = stream $ value :# next
@@ -62,6 +63,22 @@ instance Monad m => Monoid (Stream' i m o) where
 
 instance Monad m => Monoid (Stream i m o) where
   mempty = stream mempty
+
+deriving stock instance Monad m => Functor (Stream' i m)
+
+deriving stock instance Monad m => Functor (Stream i m)
+
+instance Monad m => Applicative (Stream i m) where
+  pure value = value #: stop
+  (<*>) = ap
+
+instance Monad m => Monad (Stream i m) where
+  Stream x >>= f = Stream do
+    x' <- x
+    case x' of
+      Stop -> pure Stop
+      value :# next -> (<>) <$> runStream (f value) <*> runStream (next >>= f)
+      Demand onNext -> pure $ Demand (onNext >=> f)
 
 -- | Converts a list to a producer stream.
 fromList :: Monad m => [o] -> Stream () m o
