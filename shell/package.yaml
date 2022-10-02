@@ -36,3 +36,14 @@ dependencies:
 library:
   source-dirs:
     - src
+
+tests:
+  bakery-shell-test:
+    main: Main.hs
+    source-dirs:
+      - test
+    dependencies:
+      - base
+      - hspec
+
+      - bakery-shell
