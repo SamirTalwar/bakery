@@ -25,6 +25,7 @@ spec = do
       let output = runIdentity $ toListM xs
       output `shouldBe` [1, 2, 3]
 
+  describe "monoid behavior" do
     it "concatenates" do
       let as :: Producer Identity Int = 1 #: 2 #: 3 #: stop
       let bs :: Producer Identity Int = mempty
@@ -49,6 +50,7 @@ spec = do
       xs <- fromList @Identity <$> forAll genIntList
       toList (fmap id xs) === toList xs
 
+  describe "monadic behavior" do
     it "follows the functor composition law" $ hedgehog do
       xs <- fromList @Identity <$> forAll genIntList
       let g = (+ 3)
