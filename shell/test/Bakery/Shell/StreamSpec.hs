@@ -29,10 +29,38 @@ spec = do
 
   describe "an effectful stream" do
     it "can be processed" do
-      let xs :: Effect (Writer [String]) =
-            lift (tell ["a"]) <> lift (tell ["b"]) <> lift (tell ["c"])
+      let write :: Consumer (Writer [String]) String =
+            demand \x -> (lift (tell [x]) |> blackHole) <> write
+          xs :: Effect (Writer [String]) =
+            "a" #: "b" #: "c" #: stop |> write
           (_, output) = runWriter $ run xs
       output `shouldBe` ["a", "b", "c"]
+
+  describe "composition" do
+    it "propagates values from yielding to demanding" do
+      let xs :: Producer Identity Int = 1 #: 2 #: stop
+          ys :: Stream Int Identity Int = demand \x -> x + 5 #: demand \x' -> x' + 10 #: stop
+          result = xs |> ys
+      toList result `shouldBe` [6, 12]
+
+    it "stops when the downstream stops" do
+      let xs :: Producer Identity Int = 1 #: 2 #: 3 #: stop
+          ys :: Stream Int Identity Int = demand \x -> x + 1 #: stop
+          result = xs |> ys
+      toList result `shouldBe` [2]
+
+    it "stops when the upstream stops" do
+      let xs :: Producer Identity Int = 1 #: 2 #: 3 #: stop
+          ys :: Stream Int Identity Int = demand \x -> x * 2 #: ys
+          result = xs |> ys
+      toList result `shouldBe` [2, 4, 6]
+
+    it "propagates values through demands" do
+      let xs :: Producer Identity Int = 100 #: 200 #: stop
+          ys :: Stream Int Identity Int = 1 #: 2 #: demand (#: ys)
+          zs :: Stream Int Identity Int = demand \x -> x * 2 #: zs
+          result = xs |> ys |> zs
+      toList result `shouldBe` [2, 4, 200, 2, 4, 400, 2, 4]
 
   describe "monoid behavior" do
     it "concatenates" do

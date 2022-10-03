@@ -10,6 +10,7 @@ module Bakery.Shell.Stream
   ( -- * Types
     Stream,
     Producer,
+    Consumer,
     Effect,
 
     -- * Constructors
@@ -17,12 +18,19 @@ module Bakery.Shell.Stream
     (#:),
     demand,
 
+    -- * Composition
+    (|>),
+    (<|),
+
     -- * Effects
     run,
 
     -- * Converters
     fromList,
     toListM,
+
+    -- * Transformations
+    blackHole,
   )
 where
 
@@ -36,6 +44,8 @@ import Data.Void (Void)
 type Stream :: Type -> (Type -> Type) -> Type -> Type
 newtype Stream i m o = Stream {unStream :: m (Stream' i m o)}
 
+infixr 5 :#
+
 data Stream' (i :: Type) (m :: Type -> Type) (o :: Type) where
   Stop :: Stream' i m o
   (:#) :: o -> Stream i m o -> Stream' i m o
@@ -44,8 +54,11 @@ data Stream' (i :: Type) (m :: Type -> Type) (o :: Type) where
 type Producer :: (Type -> Type) -> Type -> Type
 type Producer = Stream Void
 
+type Consumer :: (Type -> Type) -> Type -> Type
+type Consumer m i = Stream i m Void
+
 type Effect :: (Type -> Type) -> Type
-type Effect m = Stream Void m () -- Should have an output of Void
+type Effect m = Stream Void m Void
 
 stream :: Applicative m => Stream' i m o -> Stream i m o
 stream = Stream . pure
@@ -66,7 +79,7 @@ demand onNext = stream $ Demand onNext
 
 instance Monad m => Semigroup (Stream' i m o) where
   Stop <> y' = y'
-  value :# Stream next <> y = value :# Stream (next <&> (<> y))
+  (value :# Stream next) <> y = value :# Stream (next <&> (<> y))
   Demand onNext <> y = Demand \value -> Stream (unStream (onNext value) <&> (<> y))
 
 instance Monad m => Semigroup (Stream i m o) where
@@ -97,6 +110,31 @@ instance Monad m => Monad (Stream i m) where
 instance MonadTrans (Stream i) where
   lift x = Stream $ (:#) <$> x <*> pure stop
 
+infixr 3 |>
+
+-- | Connect two streams, left to right.
+(|>) :: Monad m => Stream a m b -> Stream b m c -> Stream a m c
+Stream x |> Stream y = Stream do
+  x' <- x
+  y' <- y
+  x' |># y'
+
+infixr 3 |>#
+
+(|>#) :: Monad m => Stream' a m b -> Stream' b m c -> m (Stream' a m c)
+_ |># Stop = pure Stop
+Stop |># Demand _ = pure Stop
+up |># value :# next = pure $ value :# (stream up |> next)
+value :# next |># Demand onNext = unStream (next |> onNext value)
+Demand onNext |># down@(Demand _) = pure $ Demand (\value -> onNext value |> stream down)
+
+infixr 3 <|
+
+-- | Connect two streams, right to left.
+{-# INLINE (<|) #-}
+(<|) :: Monad m => Stream b m c -> Stream a m b -> Stream a m c
+y <| x = x |> y
+
 -- | Converts a list to a producer stream.
 fromList :: Monad m => [o] -> Producer m o
 fromList = foldr (#:) stop
@@ -110,5 +148,9 @@ toListM (Stream s) =
     Demand _ -> error "Cannot demand a Void value"
 
 -- | Processes a stream, discarding any values.
-run :: Monad m => Producer m a -> m ()
+run :: Monad m => Effect m -> m ()
 run s = void $ toListM s
+
+-- | Consume and discard all values.
+blackHole :: Applicative m => Consumer m a
+blackHole = demand (const blackHole)
