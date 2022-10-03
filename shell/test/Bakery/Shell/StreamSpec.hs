@@ -5,6 +5,7 @@ module Bakery.Shell.StreamSpec (spec) where
 
 import Bakery.Shell.Stream
 import Control.Monad.Trans (lift)
+import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.Functor.Identity (Identity (..))
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
@@ -26,11 +27,18 @@ spec = do
       let output = runIdentity $ toListM xs
       output `shouldBe` [1, 2, 3]
 
+  describe "an effectful stream" do
+    it "can be processed" do
+      let xs :: Effect (Writer [String]) =
+            lift (tell ["a"]) <> lift (tell ["b"]) <> lift (tell ["c"])
+          (_, output) = runWriter $ run xs
+      output `shouldBe` ["a", "b", "c"]
+
   describe "monoid behavior" do
     it "concatenates" do
       let as :: Producer Identity Int = 1 #: 2 #: 3 #: stop
-      let bs :: Producer Identity Int = mempty
-      let cs :: Producer Identity Int = 4 #: 5 #: 6 #: stop
+          bs :: Producer Identity Int = mempty
+          cs :: Producer Identity Int = 4 #: 5 #: 6 #: stop
       toList (as <> bs <> cs) `shouldBe` [1 .. 6]
 
     it "follows the monoid associativity law" $ hedgehog do
@@ -55,7 +63,7 @@ spec = do
     it "follows the functor composition law" $ hedgehog do
       xs <- fromList @Identity <$> forAll genIntList
       let g = (+ 3)
-      let f = (* 2)
+          f = (* 2)
       toList (fmap (g . f) xs) === toList (fmap g (fmap f xs))
 
     it "follows the applicative functor identity law" $ hedgehog do
@@ -65,7 +73,7 @@ spec = do
     it "follows the applicative functor composition law" $ hedgehog do
       xs <- fromList @Identity <$> forAll genIntList
       let g = pure (+ 7)
-      let f = pure (* 3)
+          f = pure (* 3)
       toList (pure (.) <*> g <*> f <*> xs) === toList (g <*> (f <*> xs))
 
     it "follows the applicative functor homomorphism law" $ hedgehog do
@@ -90,7 +98,7 @@ spec = do
     it "follows the monad associativity law" $ hedgehog do
       xs <- fromList @Identity <$> forAll genIntList
       let f y = y #: y * 2 #: y #: stop
-      let g y = y #: stop
+          g y = y #: stop
       toList (xs >>= \x -> f x >>= g) === toList ((xs >>= f) >>= g)
 
     it "follows the monad transformer identity law" $ hedgehog do

@@ -8,13 +8,17 @@
 -- Link: https://arxiv.org/abs/0905.4813
 module Bakery.Shell.Stream
   ( -- * Types
-    Stream (..),
+    Stream,
     Producer,
+    Effect,
 
     -- * Constructors
     stop,
     (#:),
     demand,
+
+    -- * Effects
+    run,
 
     -- * Converters
     fromList,
@@ -22,7 +26,7 @@ module Bakery.Shell.Stream
   )
 where
 
-import Control.Monad (ap, (>=>))
+import Control.Monad (ap, void, (>=>))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Functor ((<&>))
 import Data.Kind (Type)
@@ -30,7 +34,7 @@ import Data.Void (Void)
 
 -- | 'Stream' models a lazy, effectful sequence.
 type Stream :: Type -> (Type -> Type) -> Type -> Type
-newtype Stream i m o = Stream {runStream :: m (Stream' i m o)}
+newtype Stream i m o = Stream {unStream :: m (Stream' i m o)}
 
 data Stream' (i :: Type) (m :: Type -> Type) (o :: Type) where
   Stop :: Stream' i m o
@@ -39,6 +43,9 @@ data Stream' (i :: Type) (m :: Type -> Type) (o :: Type) where
 
 type Producer :: (Type -> Type) -> Type -> Type
 type Producer = Stream Void
+
+type Effect :: (Type -> Type) -> Type
+type Effect m = Stream Void m () -- Should have an output of Void
 
 stream :: Applicative m => Stream' i m o -> Stream i m o
 stream = Stream . pure
@@ -60,7 +67,7 @@ demand onNext = stream $ Demand onNext
 instance Monad m => Semigroup (Stream' i m o) where
   Stop <> y' = y'
   value :# Stream next <> y = value :# Stream (next <&> (<> y))
-  Demand onNext <> y = Demand \value -> Stream (runStream (onNext value) <&> (<> y))
+  Demand onNext <> y = Demand \value -> Stream (unStream (onNext value) <&> (<> y))
 
 instance Monad m => Semigroup (Stream i m o) where
   Stream x <> Stream y = Stream $ (<>) <$> x <*> y
@@ -84,20 +91,24 @@ instance Monad m => Monad (Stream i m) where
     x' <- x
     case x' of
       Stop -> pure Stop
-      value :# next -> (<>) <$> runStream (f value) <*> runStream (next >>= f)
+      value :# next -> (<>) <$> unStream (f value) <*> unStream (next >>= f)
       Demand onNext -> pure $ Demand (onNext >=> f)
 
 instance MonadTrans (Stream i) where
   lift x = Stream $ (:#) <$> x <*> pure stop
 
 -- | Converts a list to a producer stream.
-fromList :: Monad m => [o] -> Stream Void m o
+fromList :: Monad m => [o] -> Producer m o
 fromList = foldr (#:) stop
 
 -- | Effectfully converts a producer stream to a list.
-toListM :: Monad m => Stream Void m o -> m [o]
+toListM :: Monad m => Producer m o -> m [o]
 toListM (Stream s) =
   s >>= \case
     Stop -> pure []
     value :# next -> (value :) <$> toListM next
     Demand _ -> error "Cannot demand a Void value"
+
+-- | Processes a stream, discarding any values.
+run :: Monad m => Producer m a -> m ()
+run s = void $ toListM s
