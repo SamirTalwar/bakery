@@ -14,6 +14,7 @@ import Bakery.Shell.Path (OutputPath (..), Path (..), unknownOutputPathFailure)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
+import Data.Void (Void)
 import Pipes ((>->))
 import Pipes.ByteString qualified
 import Pipes.Prelude qualified as P
@@ -29,7 +30,7 @@ Operation aInputs a |> Operation bInputs b =
 nullStdIn :: () #> Chunk ByteString
 nullStdIn = Operation [] $ capped (pure ())
 
-nullStdOut :: Chunk ByteString #> ()
+nullStdOut :: Chunk ByteString #> Void
 nullStdOut = Operation [] P.drain
 
 readF :: (HasInputs a, Path a) => a -> () #> Chunk ByteString
@@ -37,7 +38,7 @@ readF input =
   Operation (getInputs input) $
     capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
 
-writeF :: OutputPath -> Chunk ByteString #> ()
+writeF :: OutputPath -> Chunk ByteString #> Void
 writeF (KnownOutputPath path) =
   Operation [] $ Pipes.Safe.withFile path WriteMode \handle ->
     consume

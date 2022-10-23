@@ -24,7 +24,7 @@ instance Semigroup a => Monoid (Chunk a) where
 capped :: Monad m => Pipe a b m () -> Pipe a (Chunk b) m ()
 capped pipe = (pipe >-> P.map Value) <> yield End
 
-consume :: Monad m => (a -> m ()) -> m () -> Pipe (Chunk a) () m ()
+consume :: Monad m => (a -> m ()) -> m () -> Pipe (Chunk a) b m ()
 consume withValue onEnd =
   await >>= \case
     Value value -> lift (withValue value) >> consume withValue onEnd

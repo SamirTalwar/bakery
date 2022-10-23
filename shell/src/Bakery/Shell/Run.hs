@@ -9,6 +9,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Void (Void)
 import GHC.IO.Handle (hClose)
 import Pipes
 import Pipes.ByteString qualified
@@ -25,10 +26,10 @@ class RunType r where
 instance (Argument a, HasInputs a, RunType r) => RunType (a -> r) where
   run' inputs reversedArgs arg = run' (inputs <> getInputs arg) (toArg arg `NonEmpty.cons` reversedArgs)
 
-instance RunType (() #> ()) where
+instance RunType (() #> Void) where
   run' inputs reversedArgs = nullStdIn |> run' inputs reversedArgs |> nullStdOut
 
-instance RunType (Chunk ByteString #> ()) where
+instance RunType (Chunk ByteString #> Void) where
   run' inputs reversedArgs = run' inputs reversedArgs |> nullStdOut
 
 instance RunType (() #> Chunk ByteString) where
@@ -54,7 +55,9 @@ instance RunType (Chunk ByteString #> Chunk ByteString) where
               consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
               yield ()
             stdout :: Pipe () (Chunk ByteString) (SafeT IO) ()
-            stdout = await >> capped (Pipes.ByteString.fromHandle (Process.getStdout process))
+            stdout = do
+              await
+              capped (Pipes.ByteString.fromHandle (Process.getStdout process))
          in stdin >-> stdout
     where
       cmd :| args = NonEmpty.reverse reversedArgs
