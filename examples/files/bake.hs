@@ -13,11 +13,17 @@ main = bake do
   two <- recipe (file "two.file") $ \output ->
     run "echo" "two" |> writeF output
 
+  three <- recipe (file "three.file") $ \output ->
+    run "echo" "three" |> writeF output
+
   recipe (file "cat-existing.file") $ \output ->
     run "cat" existing one two |> writeF output
 
-  recipe (file "cat.file") $ \output ->
+  cat <- recipe (file "cat.file") $ \output ->
     run "cat" one two |> writeF output
+
+  recipe (file "cat-more.file") $ \output ->
+    run "cat" cat three |> writeF output
 
   recipe (file "copy.file") $ \output ->
     run "cp" existing output

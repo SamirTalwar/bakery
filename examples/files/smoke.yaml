@@ -45,6 +45,17 @@ tests:
     revert:
       - .
 
+  - name: files/cat-more
+    command: ./bake.hs cat-more.file
+    files:
+      - path: cat-more.file
+        contents: |
+          one
+          two
+          three
+    revert:
+      - .
+
   - name: files/cat-existing
     command: |
       echo 'extra content' > existing.file

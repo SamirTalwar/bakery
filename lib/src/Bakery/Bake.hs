@@ -107,12 +107,15 @@ bakeOutput (An output@Output {outputAction, outputExists}) = do
   unless doesExist . fail $ "Did not produce " <> show output <> "."
 
 required :: Outputs -> Outputs -> Baking Outputs
-required allOutputs targetOutputs = do
-  requiredTargets <- forM targetOutputs $ \targetOutput@(An Output {outputInputs}) -> do
-    dependencies <- mapM (\(An (Input input)) -> findTarget allOutputs (identifier input)) outputInputs
-    pure $ dependencies ++ [targetOutput]
-  pure . List.nubBy equalById $ concat requiredTargets
+required allOutputs targetOutputs =
+  List.nubBy equalById <$> required' targetOutputs
   where
+    required' :: Outputs -> Baking Outputs
+    required' outputs =
+      concat <$> forM outputs \output@(An Output {outputInputs}) -> do
+        dependencies <- mapM (\(An (Input input)) -> findTarget allOutputs (identifier input)) outputInputs
+        recursive <- required' dependencies
+        pure $ recursive ++ [output]
     equalById = (==) `on` (\(An Output {outputId}) -> outputId)
 
 {- HLINT ignore logText "Avoid lambda using `infix`" -}
