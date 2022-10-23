@@ -3,3 +3,9 @@ packages:
   lib
   examples
   shell
+
+optimization: False
+
+program-options
+  ghc-options:
+    -fprint-potential-instances
