@@ -66,7 +66,7 @@ tests:
     revert:
       - .
 
-  - name: files/copy
+  - name: files/indirect
     command: |
       ./bake.hs ./indirect.file
     files:
