@@ -23,3 +23,17 @@ tests:
           LOREM IPSUM
     revert:
       - .
+
+  - name: uppercase/again
+    command: |
+      echo the cat in the hat > input.file
+      ./bake.hs file:./again.file
+    files:
+      - path: output.file
+        contents: |
+          THE CAT IN THE HAT
+      - path: again.file
+        contents: |
+          THE CAT IN THE HAT
+    revert:
+      - .
