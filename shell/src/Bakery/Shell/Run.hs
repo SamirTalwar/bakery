@@ -13,7 +13,7 @@ import Data.Void (Void)
 import GHC.IO.Handle (hClose)
 import Pipes
 import Pipes.ByteString qualified
-import Pipes.Safe (SafeT, bracket)
+import Pipes.Safe (bracket)
 import System.Exit (ExitCode (..))
 import System.Process.Typed qualified as Process
 
@@ -48,17 +48,10 @@ instance RunType (Chunk ByteString #> Chunk ByteString) where
             ExitFailure (-13) -> pure () -- ignore SIGPIPE errors
             ExitFailure code -> fail $ "The command failed with exit code " <> show code <> "."
       )
-      \process ->
+      \process -> do
         let stdinHandle = Process.getStdin process
-            stdin :: Pipe (Chunk ByteString) () (SafeT IO) ()
-            stdin = do
-              consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
-              yield ()
-            stdout :: Pipe () (Chunk ByteString) (SafeT IO) ()
-            stdout = do
-              await
-              capped (Pipes.ByteString.fromHandle (Process.getStdout process))
-         in stdin >-> stdout
+        consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
+        capped (Pipes.ByteString.fromHandle (Process.getStdout process))
     where
       cmd :| args = NonEmpty.reverse reversedArgs
       config =
