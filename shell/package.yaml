@@ -29,8 +29,9 @@ dependencies:
   - base
   - bakery-core
   - bytestring
-  - directory
-  - mtl
+  - pipes
+  - pipes-bytestring
+  - pipes-safe
   - typed-process
 
 library:

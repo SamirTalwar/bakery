@@ -15,7 +15,7 @@ tests:
       ./bake.hs :false
     exit-status: 1
     stderr: |
-      bake.hs: user error (The command failed with exit code ExitFailure 1.)
+      bake.hs: user error (The command failed with exit code 1.)
 
   - name: exec/count
     command: |
