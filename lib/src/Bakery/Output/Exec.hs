@@ -2,10 +2,11 @@ module Bakery.Output.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
-import Bakery.Shell (StdOut (..), shellInputs, type (#>))
-import Bakery.Shell.Evaluate qualified as Shell
+import Bakery.Shell
 import Control.Monad.IO.Class (liftIO)
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
+import Data.Foldable (fold)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Typeable (Typeable)
@@ -21,13 +22,11 @@ instance Identifiable Exec where
   name (Exec execName) = Name execName
 
 instance Bakeable Exec where
-  type Recipe Exec = (() #> StdOut)
+  type Recipe Exec = (() #> Chunk ByteString)
   parseName = pure . Just . Exec
   deriveInputs _ = shellInputs
   exists _ = pure True
   follow recipe target = do
-    stdout <- liftIO $ Shell.evaluate recipe
-    case stdout of
-      StdOut output -> liftIO $ ByteString.putStr output
-      StdOutEnd -> pure ()
+    stdout <- liftIO $ evaluate recipe
+    liftIO $ ByteString.putStr (fold stdout)
     pure target

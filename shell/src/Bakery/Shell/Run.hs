@@ -3,14 +3,15 @@ module Bakery.Shell.Run (run) where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Builder (nullStdIn, nullStdOut, (|>))
-import Bakery.Shell.Operation (StdIn (..), StdOut (..), type (#>) (..))
+import Bakery.Shell.Chunk
+import Bakery.Shell.Operation (type (#>) (..))
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import GHC.IO.Handle (hClose)
 import Pipes
 import Pipes.ByteString qualified
-import Pipes.Prelude qualified as P
 import Pipes.Safe (SafeT, bracket)
 import System.Exit (ExitCode (..))
 import System.Process.Typed qualified as Process
@@ -27,13 +28,13 @@ instance (Argument a, HasInputs a, RunType r) => RunType (a -> r) where
 instance RunType (() #> ()) where
   run' inputs reversedArgs = nullStdIn |> run' inputs reversedArgs |> nullStdOut
 
-instance RunType (StdIn #> ()) where
+instance RunType (Chunk ByteString #> ()) where
   run' inputs reversedArgs = run' inputs reversedArgs |> nullStdOut
 
-instance RunType (() #> StdOut) where
+instance RunType (() #> Chunk ByteString) where
   run' inputs reversedArgs = nullStdIn |> run' inputs reversedArgs
 
-instance RunType (StdIn #> StdOut) where
+instance RunType (Chunk ByteString #> Chunk ByteString) where
   run' inputs reversedArgs =
     Operation inputs $ bracket
       (Process.startProcess config)
@@ -48,14 +49,12 @@ instance RunType (StdIn #> StdOut) where
       )
       \process ->
         let stdinHandle = Process.getStdin process
-            stdin :: Pipe StdIn () (SafeT IO) ()
+            stdin :: Pipe (Chunk ByteString) () (SafeT IO) ()
             stdin = do
-              x <- await
-              case x of
-                StdIn bytes -> liftIO (ByteString.hPut stdinHandle bytes) >> stdin
-                StdInEnd -> liftIO (hClose stdinHandle) >> yield ()
-            stdout :: Pipe () StdOut (SafeT IO) ()
-            stdout = await >> ((Pipes.ByteString.fromHandle (Process.getStdout process) >-> P.map StdOut) <> yield StdOutEnd)
+              consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
+              yield ()
+            stdout :: Pipe () (Chunk ByteString) (SafeT IO) ()
+            stdout = await >> capped (Pipes.ByteString.fromHandle (Process.getStdout process))
          in stdin >-> stdout
     where
       cmd :| args = NonEmpty.reverse reversedArgs

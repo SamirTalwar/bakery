@@ -8,11 +8,13 @@ module Bakery.Shell.Builder
 where
 
 import Bakery.Input (HasInputs (..))
-import Bakery.Shell.Operation (StdIn (..), StdOut (..), type (#>) (..))
+import Bakery.Shell.Chunk
+import Bakery.Shell.Operation (type (#>) (..))
 import Bakery.Shell.Path (OutputPath (..), Path (..), unknownOutputPathFailure)
 import Control.Monad.IO.Class (liftIO)
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
-import Pipes (cat, for, yield, (>->))
+import Pipes ((>->))
 import Pipes.ByteString qualified
 import Pipes.Prelude qualified as P
 import Pipes.Safe.Prelude qualified as Pipes.Safe
@@ -24,23 +26,22 @@ infixr 5 |>
 Operation aInputs a |> Operation bInputs b =
   Operation (aInputs <> bInputs) $ a >-> b
 
-nullStdIn :: () #> StdIn
-nullStdIn = Operation [] $ yield StdInEnd
+nullStdIn :: () #> Chunk ByteString
+nullStdIn = Operation [] $ capped (pure ())
 
-nullStdOut :: StdOut #> ()
+nullStdOut :: Chunk ByteString #> ()
 nullStdOut = Operation [] P.drain
 
-readF :: (HasInputs a, Path a) => a -> () #> StdIn
+readF :: (HasInputs a, Path a) => a -> () #> Chunk ByteString
 readF input =
   Operation (getInputs input) $
-    (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle >-> P.map StdIn)
-      <> yield StdInEnd
+    capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
 
-writeF :: OutputPath -> StdOut #> ()
+writeF :: OutputPath -> Chunk ByteString #> ()
 writeF (KnownOutputPath path) =
   Operation [] $ Pipes.Safe.withFile path WriteMode \handle ->
-    for cat \case
-      StdOut bytes -> liftIO $ ByteString.hPut handle bytes
-      StdOutEnd -> liftIO $ hClose handle
+    consume
+      (liftIO . ByteString.hPut handle)
+      (liftIO $ hClose handle)
 writeF UnknownOutputPath =
   Operation [] $ fail unknownOutputPathFailure
