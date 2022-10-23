@@ -3,5 +3,10 @@
 import Bakery
 
 main = bake do
-  recipe (file "output.file") $ \output ->
+  hello <- recipe (file "hello.file") $ \output ->
     run "echo" "Hello," "world!" |> writeF output
+
+  recipe (file "goodbye.file") $ \output ->
+    run "echo" "Goodbye," "cruel" "world!" |> writeF output
+
+  defaultRecipe hello

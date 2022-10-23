@@ -3,6 +3,7 @@ module Bakery.Identifier
     Id, -- the constructor and fields are intentionally not exported
     Namespace (..),
     Name (..),
+    defaulted,
   )
 where
 
@@ -34,3 +35,6 @@ class Identifiable a where
 
   identifier :: a -> Id
   identifier x = Id {idNamespace = namespace (Proxy :: Proxy a), idName = name x}
+
+defaulted :: Id -> Id
+defaulted inner = Id {idNamespace = Namespace (Text.pack "default"), idName = Name (Text.pack (show inner))}

@@ -1,6 +1,7 @@
 module Bakery.Bake
   ( bake,
     recipe,
+    defaultRecipe,
   )
 where
 
@@ -50,14 +51,15 @@ actuallyBake thing args = do
   mapM_ (logText . (\(An Output {outputId, outputInputs}) -> show outputId <> " <- " <> show outputInputs)) outputs
   logText ""
 
-  if null args
-    then -- consider the last recipe to be the default
-      bakeOutputs outputs [last outputs]
-    else do
-      -- for now, we treat all targets on the command line as files
-      targets <- mapM parseTarget args
-      targetOutputs <- mapM (findTarget outputs) targets
-      bakeOutputs outputs targetOutputs
+  targetOutputs <-
+    if null args
+      then -- consider the last recipe to be the default
+        pure [last outputs]
+      else do
+        -- for now, we treat all targets on the command line as files
+        targets <- mapM parseTarget args
+        mapM (findTarget outputs) targets
+  bakeOutputs outputs targetOutputs
 
 -- Yes, this parser is currently a joke. We shall fix that.
 parseTarget :: Text -> Baking Id

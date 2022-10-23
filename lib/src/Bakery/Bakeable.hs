@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Bakery.Bakeable
   ( Bakeable (..),
     BakeT (..),
     defineRecipe,
+    defaultRecipe,
     deriveOutputs,
   )
 where
@@ -50,10 +52,12 @@ instance Monad m => Applicative (BakeT m) where
   (<*>) = ap
 
 instance Monad m => Monad (BakeT m) where
+  (>>=) :: forall a b. Monad m => BakeT m a -> (a -> BakeT m b) -> BakeT m b
   bake >>= f = BakeT do
     baked <- runBake bake
     runBake $ bind' baked
     where
+      bind' :: Bake m a -> BakeT m b
       bind' (Value x) = f x
       bind' r@(Recipe (Output {outputTarget})) =
         BakeT $ Both r <$> runBake (f outputTarget)
@@ -67,14 +71,12 @@ instance MonadIO (BakeT IO) where
   liftIO = lift
 
 deriveOutputs :: Monad m => BakeT m a -> m Outputs
-deriveOutputs bake = do
-  baked <- runBake bake
-  deriveOutputs' baked
-
-deriveOutputs' :: Monad m => Bake m a -> m Outputs
-deriveOutputs' (Value _) = pure []
-deriveOutputs' (Recipe output) = pure [An output]
-deriveOutputs' (Both x y) = (<>) <$> deriveOutputs' x <*> deriveOutputs' y
+deriveOutputs bake = deriveOutputs' <$> runBake bake
+  where
+    deriveOutputs' :: Bake m a -> Outputs
+    deriveOutputs' (Value _) = []
+    deriveOutputs' (Recipe output) = [An output]
+    deriveOutputs' (Both x y) = deriveOutputs' x <> deriveOutputs' y
 
 defineRecipe :: forall a. Bakeable a => a -> Recipe a -> BakeT Baking a
 defineRecipe target recipe' = BakeT do
@@ -86,3 +88,15 @@ defineRecipe target recipe' = BakeT do
       (deriveInputs (Proxy :: Proxy a) recipe')
       (exists normalized)
       (follow recipe' normalized)
+
+defaultRecipe :: forall a. Bakeable a => a -> BakeT Baking ()
+defaultRecipe input =
+  BakeT . pure $
+    Recipe
+      Output
+        { outputId = defaulted (identifier input),
+          outputTarget = (),
+          outputInputs = [An (Input input)],
+          outputExists = exists input,
+          outputAction = pure ()
+        }

@@ -5,10 +5,28 @@ shell:
   - -e
 
 tests:
-  - name: echo
+  - name: echo/hello
+    command: ./bake.hs file:./hello.file
+    files:
+      - path: hello.file
+        contents: |
+          Hello, world!
+    revert:
+      - .
+
+  - name: echo/goodbye
+    command: ./bake.hs file:./goodbye.file
+    files:
+      - path: goodbye.file
+        contents: |
+          Goodbye, cruel world!
+    revert:
+      - .
+
+  - name: echo/default
     command: ./bake.hs
     files:
-      - path: output.file
+      - path: hello.file
         contents: |
           Hello, world!
     revert:
