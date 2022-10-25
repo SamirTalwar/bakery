@@ -1,4 +1,4 @@
-module Bakery.Existing (Existing, existing) where
+module Bakery.Output.Existing (Existing, existing) where
 
 import Bakery.A
 import Bakery.Bakeable
