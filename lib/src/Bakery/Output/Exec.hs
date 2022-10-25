@@ -2,6 +2,7 @@ module Bakery.Output.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
+import Bakery.Input
 import Bakery.Shell
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
@@ -24,7 +25,7 @@ instance Identifiable Exec where
 instance Bakeable Exec where
   type Recipe Exec = (() #> Chunk ByteString)
   parseName = pure . Just . Exec
-  deriveInputs _ = shellInputs
+  deriveInputs _ = getInputs
   exists _ = pure True
   follow recipe target = do
     stdout <- liftIO $ evaluate recipe

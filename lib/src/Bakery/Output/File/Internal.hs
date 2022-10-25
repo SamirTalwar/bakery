@@ -5,7 +5,7 @@ import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell (evaluate_, shellInputs, type (#>))
+import Bakery.Shell (evaluate_, type (#>))
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (OutputPath (..), Path (..))
 import Control.Monad.IO.Class (liftIO)
@@ -44,7 +44,7 @@ instance Bakeable File where
      in if FilePath.isValid path
           then Just <$> normalize (File path)
           else pure Nothing
-  deriveInputs _ recipe = shellInputs $ recipe UnknownOutputPath
+  deriveInputs _ recipe = getInputs $ recipe UnknownOutputPath
   exists (File path) = liftIO $ Directory.doesPathExist path
   follow recipe f@(File path) = liftIO $ evaluate_ (recipe (KnownOutputPath path)) $> f
 
