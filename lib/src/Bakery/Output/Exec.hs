@@ -4,6 +4,7 @@ import Bakery.Bakeable
 import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell
+import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
@@ -28,6 +29,6 @@ instance Bakeable Exec where
   deriveInputs _ = getInputs
   exists _ = pure True
   follow recipe target = do
-    stdout <- liftIO $ evaluate recipe
-    liftIO $ ByteString.putStr (fold stdout)
+    stdout <- liftIO $ evaluate recipe [()]
+    forM_ stdout $ liftIO . ByteString.putStr . fold
     pure target
