@@ -1,20 +1,6 @@
-module Bakery.Shell.Prelude
-  ( cat,
-    filter,
-    map,
-  )
-where
+module Bakery.Shell.Prelude (module M) where
 
-import Bakery.Shell.Operation
-import Pipes qualified as P
-import Pipes.Prelude qualified as P
-import Prelude hiding (filter, map)
-
-cat :: a #> a
-cat = Operation [] P.cat
-
-map :: (a -> b) -> a #> b
-map = Operation [] . P.map
-
-filter :: (a -> Bool) -> a #> a
-filter = Operation [] . P.filter
+import Bakery.Shell.Prelude.File as M
+import Bakery.Shell.Prelude.Null as M
+import Bakery.Shell.Prelude.Transformation as M
+import Bakery.Shell.Prelude.Trivial as M

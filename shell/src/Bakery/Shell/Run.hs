@@ -7,9 +7,9 @@ where
 
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
-import Bakery.Shell.Builder (nullStdIn, nullStdOut, (|>))
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (type (#>) (..))
+import Bakery.Shell.Operation ((|>), type (#>) (..))
+import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List qualified as List

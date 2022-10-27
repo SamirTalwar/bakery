@@ -1,8 +1,5 @@
-module Bakery.Shell.Builder
-  ( (|>),
-    nullStdIn,
-    nullStdOut,
-    readF,
+module Bakery.Shell.Prelude.File
+  ( readF,
     writeF,
   )
 where
@@ -15,23 +12,9 @@ import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.Void (Void)
-import Pipes ((>->))
 import Pipes.ByteString qualified
-import Pipes.Prelude qualified as P
 import Pipes.Safe.Prelude qualified as Pipes.Safe
 import System.IO (IOMode (..), hClose)
-
-infixr 5 |>
-
-(|>) :: a #> b -> b #> c -> a #> c
-Operation aInputs a |> Operation bInputs b =
-  Operation (aInputs <> bInputs) $ a >-> b
-
-nullStdIn :: () #> Chunk ByteString
-nullStdIn = Operation [] $ capped (pure ())
-
-nullStdOut :: Chunk ByteString #> Void
-nullStdOut = Operation [] P.drain
 
 readF :: (HasInputs a, Path a) => a -> () #> Chunk ByteString
 readF input =

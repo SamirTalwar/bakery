@@ -1,19 +1,11 @@
-module Bakery.Shell.PreludeSpec where
+module Bakery.Shell.Prelude.TransformationSpec where
 
 import Bakery.Shell
-import Bakery.Shell.Prelude
 import Bakery.Shell.Prelude qualified as B
 import Test.Hspec
 
 spec :: Spec
 spec = do
-  describe "cat" do
-    it "pipes data from input to output" do
-      let values :: [Int]
-          values = [1, 2, 3]
-      result <- evaluate cat values
-      result `shouldBe` values
-
   describe "map" do
     it "transforms values" do
       let values :: [Int]
