@@ -35,24 +35,7 @@
         inherit system;
       };
       haskellCompiler = pkgs.haskell.compiler.${ghcVersionString};
-      haskellPackages = pkgs.haskell.packages.${ghcVersionString}.override {
-        overrides = hself: hsuper:
-          let
-            # Ormolu v0.5.0.1 doesn't build correctly on aarch64-darwin.
-            # Disabling the "fixity-th" flag seems to fix it.
-            # https://github.com/tweag/ormolu/issues/927
-            fixOrmolu = p: pkgs.lib.pipe p [
-              (pkgs.haskell.lib.compose.addExtraLibrary hself.file-embed)
-              (pkgs.haskell.lib.compose.disableCabalFlag "fixity-th")
-            ];
-          in
-          {
-            ormolu = hself.ormolu_0_5_0_1;
-            ormolu_0_5_0_1 = fixOrmolu hsuper.ormolu_0_5_0_1;
-            fourmolu = hself.fourmolu_0_8_2_0;
-            fourmolu_0_8_2_0 = fixOrmolu hsuper.fourmolu_0_8_2_0;
-          };
-      };
+      haskellPackages = pkgs.haskell.packages.${ghcVersionString};
 
       examples = builtins.attrNames (pkgs.lib.attrsets.filterAttrs (name: value: value == "directory") (builtins.readDir ./examples));
     in
