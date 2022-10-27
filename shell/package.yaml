@@ -45,6 +45,8 @@ tests:
       - test
     dependencies:
       - base
+      - hedgehog
       - hspec
+      - hspec-hedgehog
 
       - bakery-shell
