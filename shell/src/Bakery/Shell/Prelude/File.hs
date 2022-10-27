@@ -16,11 +16,13 @@ import Pipes.ByteString qualified
 import Pipes.Safe.Prelude qualified as Pipes.Safe
 import System.IO (IOMode (..), hClose)
 
+-- | An operation that reads the given file and emits its contents.
 readF :: (HasInputs a, Path a) => a -> () #> Chunk ByteString
 readF input =
   Operation (getInputs input) $
     capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
 
+-- | An operation that writes its input to the given file.
 writeF :: OutputPath -> Chunk ByteString #> Void
 writeF (KnownOutputPath path) =
   Operation [] $ Pipes.Safe.withFile path WriteMode \handle ->

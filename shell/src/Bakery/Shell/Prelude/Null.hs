@@ -10,8 +10,10 @@ import Data.ByteString (ByteString)
 import Data.Void (Void)
 import Pipes.Prelude qualified as P
 
+-- | An operation that produces an empty stream of bytes.
 nullStdIn :: () #> Chunk ByteString
 nullStdIn = Operation [] $ capped (pure ())
 
+-- | An operation that discards all inputs.
 nullStdOut :: Chunk ByteString #> Void
 nullStdOut = Operation [] P.drain
