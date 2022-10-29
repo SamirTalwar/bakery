@@ -29,6 +29,8 @@ dependencies:
   - base
   - bakery-core
   - bytestring
+  - exceptions
+  - mtl
   - pipes
   - pipes-bytestring
   - pipes-safe

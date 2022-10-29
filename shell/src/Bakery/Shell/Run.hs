@@ -8,7 +8,7 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation ((|>), type (#>) (..))
+import Bakery.Shell.Operation (Operation (..), (|>), type (#>))
 import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
@@ -84,7 +84,7 @@ runOperation inputs command args = Operation inputs $ bracket start stop stream
         Process.setStdin Process.createPipe $
           Process.setStdout Process.createPipe $
             Process.proc (fromArg command) (map fromArg args)
-    stop process = do
+    stop process = liftIO do
       hClose $ Process.getStdin process
       hClose $ Process.getStdout process
       exitCode <- Process.waitExitCode process

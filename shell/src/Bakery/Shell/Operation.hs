@@ -1,5 +1,6 @@
 module Bakery.Shell.Operation
-  ( type (#>) (..),
+  ( type (#>),
+    Operation (..),
     (|>),
     (<|),
   )
@@ -9,9 +10,11 @@ import Bakery.Input (HasInputs (..), Inputs)
 import Pipes (Pipe, (>->))
 import Pipes.Safe (SafeT)
 
-data i #> o = Operation Inputs (Pipe i o (SafeT IO) ())
+type i #> o = Operation i o IO ()
 
-instance HasInputs (i #> o) where
+data Operation i o m r = Operation Inputs (Pipe i o (SafeT m) r)
+
+instance HasInputs (Operation i o m r) where
   getInputs (Operation inputs _) = inputs
 
 infixr 5 |>

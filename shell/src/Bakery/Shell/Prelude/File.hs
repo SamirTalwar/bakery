@@ -6,7 +6,7 @@ where
 
 import Bakery.Input (HasInputs (..))
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (type (#>) (..))
+import Bakery.Shell.Operation (Operation (..), type (#>))
 import Bakery.Shell.Path (OutputPath (..), Path (..), unknownOutputPathFailure)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString)
