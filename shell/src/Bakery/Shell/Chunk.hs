@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 
 module Bakery.Shell.Chunk
-  ( Chunk,
+  ( Chunk (..),
     capped,
     consume,
   )
@@ -11,7 +11,11 @@ import Pipes
 import Pipes.Prelude qualified as P
 
 data Chunk a = Value a | End
-  deriving stock (Foldable)
+  deriving stock (Eq, Foldable)
+
+instance Show a => Show (Chunk a) where
+  show (Value x) = show x
+  show End = "<end>"
 
 instance Semigroup a => Semigroup (Chunk a) where
   a <> End = a
