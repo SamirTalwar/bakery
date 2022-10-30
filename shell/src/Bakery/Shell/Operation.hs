@@ -12,9 +12,9 @@ import Control.Monad.Trans (MonadTrans (..))
 import Pipes (Pipe, (>->))
 import Pipes.Safe (SafeT)
 
-type i #> o = Operation i o IO ()
+type i #> o = Operation i o (SafeT IO) ()
 
-data Operation i o m r = Operation Inputs (Pipe i o (SafeT m) r)
+data Operation i o m r = Operation Inputs (Pipe i o m r)
   deriving stock (Functor)
 
 instance Applicative m => Applicative (Operation i o m) where
@@ -29,7 +29,7 @@ instance Monad m => Monad (Operation i o m) where
     y
 
 instance MonadTrans (Operation i o) where
-  lift = Operation [] . lift . lift
+  lift = Operation [] . lift
 
 instance MonadIO m => MonadIO (Operation i o m) where
   liftIO = Operation [] . liftIO

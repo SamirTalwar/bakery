@@ -11,10 +11,10 @@ import Control.Monad.IO.Class (MonadIO)
 import Data.Void (Void)
 import Pipes (each, (>->))
 import Pipes.Prelude (toListM)
-import Pipes.Safe (runSafeT)
+import Pipes.Safe (SafeT, runSafeT)
 
-evaluate :: (MonadMask m, MonadIO m) => Operation i o m () -> [i] -> m [o]
-evaluate (Operation _ pipe) values = runSafeT (toListM (each values >-> pipe))
+evaluate :: (MonadMask m, MonadIO m) => Operation i o (SafeT m) () -> [i] -> m [o]
+evaluate (Operation _ pipe) values = runSafeT $ toListM (each values >-> pipe)
 
-evaluate_ :: (MonadMask m, MonadIO m) => Operation () Void m () -> m ()
+evaluate_ :: (MonadMask m, MonadIO m) => Operation () Void (SafeT m) () -> m ()
 evaluate_ operation = void $ evaluate operation [()]
