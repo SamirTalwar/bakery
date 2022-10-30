@@ -26,3 +26,14 @@ spec = do
             fail "Oh no!"
       result <- tryIOError $ evaluate operation []
       result `shouldBe` Left (userError "Oh no!")
+
+    it "can run multiple operations over the streamed input" do
+      let values :: [Int]
+          values = [1 .. 20]
+          operationA = B.take 10 |> B.filter even |> B.map (* 2)
+          operationB = B.filter odd |> B.map (* 3)
+          operation = do
+            operationA -- only takes the first ten elements
+            operationB -- works on the remainder
+      result <- evaluate operation values
+      result `shouldBe` [4, 8 .. 20] <> [33, 39 .. 57]
