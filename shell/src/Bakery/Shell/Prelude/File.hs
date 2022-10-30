@@ -9,6 +9,7 @@ import Bakery.Shell.Chunk
 import Bakery.Shell.Operation (Operation (..), type (#>))
 import Bakery.Shell.Path (OutputPath (..), Path (..), unknownOutputPathFailure)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans (lift)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.Void (Void)
@@ -25,9 +26,9 @@ readF input =
 -- | An operation that writes its input to the given file.
 writeF :: OutputPath -> Chunk ByteString #> Void
 writeF (KnownOutputPath path) =
-  Operation [] $ Pipes.Safe.withFile path WriteMode \handle ->
+  lift $ Pipes.Safe.withFile path WriteMode \handle ->
     consume
       (liftIO . ByteString.hPut handle)
       (liftIO $ hClose handle)
 writeF UnknownOutputPath =
-  Operation [] $ fail unknownOutputPathFailure
+  lift $ fail unknownOutputPathFailure

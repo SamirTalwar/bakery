@@ -12,29 +12,31 @@ import Control.Monad.Trans (MonadTrans (..))
 import Pipes (Pipe, (>->))
 import Pipes.Safe (SafeT)
 
-type i #> o = Operation i o (SafeT IO) ()
+type i #> o = Operation (Pipe i o (SafeT IO)) ()
 
-data Operation i o m r = Operation Inputs (Pipe i o m r)
-  deriving stock (Functor)
+data Operation m r = Operation Inputs (m r)
 
-instance Applicative m => Applicative (Operation i o m) where
+instance Functor m => Functor (Operation m) where
+  fmap f (Operation inputs x) = Operation inputs (f <$> x)
+
+instance Applicative m => Applicative (Operation m) where
   pure x = Operation [] (pure x)
   Operation fInputs f <*> Operation xInputs x = Operation (fInputs <> xInputs) (f <*> x)
 
-instance Monad m => Monad (Operation i o m) where
+instance Monad m => Monad (Operation m) where
   Operation xInputs x >>= f = Operation xInputs do
     x' <- x
     -- this just discard the subsequent inputs, which is probably not what we want
     let Operation _ y = f x'
     y
 
-instance MonadTrans (Operation i o) where
-  lift = Operation [] . lift
+instance MonadTrans Operation where
+  lift = Operation []
 
-instance MonadIO m => MonadIO (Operation i o m) where
+instance MonadIO m => MonadIO (Operation m) where
   liftIO = Operation [] . liftIO
 
-instance HasInputs (Operation i o m r) where
+instance HasInputs (Operation m r) where
   getInputs (Operation inputs _) = inputs
 
 infixr 5 |>

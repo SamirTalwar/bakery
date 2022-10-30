@@ -1,8 +1,8 @@
 module Bakery.ShellSpec (spec) where
 
 import Bakery.Shell
-import Bakery.Shell.Operation
 import Bakery.Shell.Prelude qualified as B
+import Control.Monad.Trans (lift)
 import Pipes qualified
 import System.IO.Error (tryIOError)
 import Test.Hspec
@@ -19,7 +19,7 @@ spec = do
 
     it "propagates errors" do
       let operation :: () #> Int
-          operation = Operation [] do
+          operation = lift do
             Pipes.yield 1
             Pipes.yield 2
             Pipes.yield 3
