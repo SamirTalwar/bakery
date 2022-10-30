@@ -8,7 +8,7 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (Operation (..), (|>), type (#>))
+import Bakery.Shell.Operation (registerInputs, (|>), type (#>))
 import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
@@ -77,7 +77,7 @@ instance RunType (Chunk ByteString #> Chunk ByteString) where
   runConstruct inputs command reversedArgs = runOperation inputs command (List.reverse reversedArgs)
 
 runOperation :: Inputs -> Arg -> [Arg] -> Chunk ByteString #> Chunk ByteString
-runOperation inputs command args = Operation inputs $ bracket start stop stream
+runOperation inputs command args = registerInputs inputs >> lift (bracket start stop stream)
   where
     start =
       Process.startProcess $

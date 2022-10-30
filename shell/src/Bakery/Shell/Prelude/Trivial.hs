@@ -26,4 +26,4 @@ each = lift . P.each
 
 -- | Wraps operations in `Chunk`.
 capped :: a #> b -> a #> Chunk b
-capped (Operation inputs pipe) = Operation inputs (Chunk.capped pipe)
+capped = mapOperation Chunk.capped

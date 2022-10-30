@@ -4,7 +4,7 @@ module Bakery.Shell.Evaluate
   )
 where
 
-import Bakery.Shell.Operation (Operation (..))
+import Bakery.Shell.Operation (Operation, runOperation)
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO)
@@ -14,7 +14,7 @@ import Pipes.Prelude (toListM)
 import Pipes.Safe (SafeT, runSafeT)
 
 evaluate :: (MonadMask m, MonadIO m) => Operation (Pipe i o (SafeT m)) () -> [i] -> m [o]
-evaluate (Operation _ pipe) values = runSafeT $ toListM (each values >-> pipe)
+evaluate operation values = runSafeT $ toListM (each values >-> runOperation operation)
 
 evaluate_ :: (MonadMask m, MonadIO m) => Operation (Pipe () Void (SafeT m)) () -> m ()
 evaluate_ operation = void $ evaluate operation [()]

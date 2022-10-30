@@ -6,7 +6,7 @@ where
 
 import Bakery.Input (HasInputs (..))
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (Operation (..), type (#>))
+import Bakery.Shell.Operation (registerInput, type (#>))
 import Bakery.Shell.Path (OutputPath (..), Path (..), unknownOutputPathFailure)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans (lift)
@@ -19,9 +19,9 @@ import System.IO (IOMode (..), hClose)
 
 -- | An operation that reads the given file and emits its contents.
 readF :: (HasInputs a, Path a) => a -> () #> Chunk ByteString
-readF input =
-  Operation (getInputs input) $
-    capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
+readF input = do
+  registerInput input
+  lift $ capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
 
 -- | An operation that writes its input to the given file.
 writeF :: OutputPath -> Chunk ByteString #> Void
