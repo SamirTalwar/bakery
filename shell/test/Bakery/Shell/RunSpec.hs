@@ -3,9 +3,12 @@
 module Bakery.Shell.RunSpec (spec) where
 
 import Bakery.Shell
+import Bakery.Shell.Chunk qualified as Chunk
+import Control.Monad.Trans (lift)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 qualified as ByteString
 import Data.Foldable (fold)
+import Pipes qualified as P
 import Test.Hspec
 
 spec :: Spec
@@ -19,6 +22,7 @@ spec = do
     it "runs a program and passes in STDIN" do
       let input = ByteString.pack "one\ntwo\nthree\nfour\nfive\n"
       let output = ByteString.pack "five\nfour\none\nthree\ntwo\n"
-      chunks :: [Chunk ByteString] <- evaluate (capped (each [input]) |> run_ "sort") []
+      let inputStream :: () #> Chunk ByteString = lift (Chunk.capped (P.each [input]))
+      chunks :: [Chunk ByteString] <- evaluate (inputStream |> run_ "sort") []
       let result = fold $ mconcat chunks
       result `shouldBe` output

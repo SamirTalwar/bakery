@@ -2,12 +2,9 @@ module Bakery.Shell.Prelude.Trivial
   ( cat,
     empty,
     each,
-    capped,
   )
 where
 
-import Bakery.Shell.Chunk (Chunk)
-import Bakery.Shell.Chunk qualified as Chunk
 import Bakery.Shell.Operation
 import Control.Monad.Trans (lift)
 import Pipes qualified as P
@@ -23,7 +20,3 @@ empty = lift $ pure ()
 -- | An operation derived from a Foldable.
 each :: Foldable f => f a -> () #> a
 each = lift . P.each
-
--- | Wraps operations in `Chunk`.
-capped :: a #> b -> a #> Chunk b
-capped = mapOperation Chunk.capped

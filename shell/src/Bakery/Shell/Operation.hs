@@ -2,7 +2,6 @@ module Bakery.Shell.Operation
   ( type (#>),
     Operation,
     runOperation,
-    mapOperation,
     registerInput,
     registerInputs,
     (|>),
@@ -23,9 +22,6 @@ data Operation m a = Operation Inputs (m a)
 
 runOperation :: Operation m a -> m a
 runOperation (Operation _ x) = x
-
-mapOperation :: (m a -> n b) -> Operation m a -> Operation n b
-mapOperation f (Operation inputs x) = Operation inputs (f x)
 
 registerInput :: Applicative m => HasInputs a => a -> Operation m ()
 registerInput input = registerInputs (getInputs input)
