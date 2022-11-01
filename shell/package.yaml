@@ -52,3 +52,5 @@ tests:
       - hspec-hedgehog
 
       - bakery-shell
+
+      - text
