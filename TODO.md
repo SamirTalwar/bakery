@@ -4,10 +4,6 @@ This is just a collection of notes. It may be out of date, or make no sense.
 
 ## Now-ish
 
-### Abstract nonsense
-
-- Model the shell as [stream processors][stream-processors].
-
 ### Program semantics
 
 - Run within the same directory as the _bake.hs_ file.
@@ -50,8 +46,6 @@ Other things to do:
 
 ### Shell
 
-- Support multi-line shell scripts.
-  - It's OK, [stream processors are monadic][stream-processors/streamprocessors/monadic.agda].
 - Add `cd`.
 - Run commands on each side of a pipe in parallel.
 - Stream data through pipes, instead of collecting it.
@@ -79,6 +73,3 @@ Other things to do:
 - Run the shell standalone.
 - Wrap a (simpler) language around the core which doesn't require GHC to invoke it.
   - Preserve type safety.
-
-[stream-processors]: https://github.com/SamirTalwar/stream-processors
-[stream-processors/streamprocessors/monadic.agda]: https://github.com/SamirTalwar/stream-processors/blob/main/StreamProcessors/Monadic.agda
