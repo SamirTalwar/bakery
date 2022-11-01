@@ -5,7 +5,7 @@ module Bakery.Shell.Prelude.Trivial
   )
 where
 
-import Bakery.Shell.Operation
+import Bakery.Shell.Pipe
 import Pipes qualified as P
 
 -- | An operation that simply copies values from input to output.

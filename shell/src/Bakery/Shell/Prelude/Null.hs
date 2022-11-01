@@ -5,7 +5,7 @@ module Bakery.Shell.Prelude.Null
 where
 
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation
+import Bakery.Shell.Pipe
 import Data.ByteString (ByteString)
 import Data.Void (Void)
 import Pipes.Prelude qualified as P

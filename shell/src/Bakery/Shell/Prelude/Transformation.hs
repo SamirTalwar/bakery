@@ -8,7 +8,7 @@ module Bakery.Shell.Prelude.Transformation
   )
 where
 
-import Bakery.Shell.Operation
+import Bakery.Shell.Pipe
 import Bakery.Shell.Prelude.Trivial
 import Pipes.Prelude qualified as P
 import Prelude hiding (drop, dropWhile, filter, map, take, takeWhile)

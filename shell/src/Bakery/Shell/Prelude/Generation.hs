@@ -4,7 +4,7 @@ module Bakery.Shell.Prelude.Generation
   )
 where
 
-import Bakery.Shell.Operation
+import Bakery.Shell.Pipe
 import Pipes qualified
 import Prelude hiding (cycle, repeat, replicate)
 

@@ -4,7 +4,6 @@ module Bakery.Shell.RunSpec (spec) where
 
 import Bakery.Shell
 import Bakery.Shell.Chunk qualified as Chunk
-import Bakery.Shell.Operation (fromPipe)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 qualified as ByteString
 import Data.Foldable (fold)

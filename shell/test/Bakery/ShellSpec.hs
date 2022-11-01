@@ -5,7 +5,6 @@ import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell
 import Bakery.Shell.Argument
-import Bakery.Shell.Operation (fromPipe)
 import Bakery.Shell.Prelude qualified as B
 import Data.ByteString (ByteString)
 import Data.Text qualified as Text

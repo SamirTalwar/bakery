@@ -1,27 +1,16 @@
 module Bakery.Shell.Operation
-  ( type (#>),
-    fromPipe,
-    Operation,
+  ( Operation (..),
     runOperation,
     registerInput,
     registerInputs,
-    (|>),
-    (<|),
   )
 where
 
 import Bakery.Input (HasInputs (..), Inputs)
-import Pipes (Pipe, (>->))
-import Pipes.Safe (SafeT)
-
-type i #> o = Operation (Pipe i o (SafeT IO)) ()
-
-fromPipe :: Pipe i o (SafeT IO) () -> i #> o
-fromPipe = Operation [] ()
 
 data Operation m a = Operation
   { operationInputs :: Inputs,
-    _operationFakeValue :: a,
+    operationFakeValue :: a,
     operationInner :: m a
   }
   deriving stock (Functor)
@@ -51,14 +40,3 @@ instance Monad m => Monad (Operation m) where
 
 instance HasInputs (Operation m r) where
   getInputs = operationInputs
-
-infixr 5 |>
-
-(|>) :: a #> b -> b #> c -> a #> c
-Operation aInputs () a |> Operation bInputs () b =
-  Operation (aInputs <> bInputs) () $ a >-> b
-
-infixl 5 <|
-
-(<|) :: (b #> c) -> (a #> b) -> a #> c
-(<|) = flip (|>)
