@@ -8,9 +8,9 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (registerInputs)
 import Bakery.Shell.Pipe
 import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
+import Bakery.Shell.TrackingInputs (registerInputs)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List qualified as List
