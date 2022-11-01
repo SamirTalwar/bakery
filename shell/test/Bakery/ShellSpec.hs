@@ -7,6 +7,7 @@ import Bakery.Shell
 import Bakery.Shell.Argument
 import Bakery.Shell.Operation (fromPipe)
 import Bakery.Shell.Prelude qualified as B
+import Data.ByteString (ByteString)
 import Data.Text qualified as Text
 import Data.Void (Void)
 import Pipes qualified
@@ -54,6 +55,20 @@ spec = do
           -- abusing `show` to check whether the arguments are legitimate
           show inputA `shouldBe` show (Input (TrackedArg "./one"))
           show inputB `shouldBe` show (Input (TrackedArg "./two"))
+        _ -> fail ("Unexpected inputs: " <> show inputs)
+
+    it "tracks inputs over multiple operations" do
+      let operation :: Chunk ByteString #> Chunk ByteString
+          operation = do
+            run (cmd (TrackedArg "./one") (TrackedArg "./two"))
+            run (cmd (TrackedArg "./three"))
+          inputs = getInputs operation
+      case inputs of
+        [An inputA, An inputB, An inputC] -> do
+          -- abusing `show` to check whether the arguments are legitimate
+          show inputA `shouldBe` show (Input (TrackedArg "./one"))
+          show inputB `shouldBe` show (Input (TrackedArg "./two"))
+          show inputC `shouldBe` show (Input (TrackedArg "./three"))
         _ -> fail ("Unexpected inputs: " <> show inputs)
 
 newtype TrackedArg a = TrackedArg a

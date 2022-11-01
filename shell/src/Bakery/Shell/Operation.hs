@@ -17,39 +17,46 @@ import Pipes.Safe (SafeT)
 type i #> o = Operation (Pipe i o (SafeT IO)) ()
 
 fromPipe :: Pipe i o (SafeT IO) () -> i #> o
-fromPipe = Operation []
+fromPipe = Operation [] ()
 
-data Operation m a = Operation Inputs (m a)
+data Operation m a = Operation
+  { operationInputs :: Inputs,
+    _operationFakeValue :: a,
+    operationInner :: m a
+  }
   deriving stock (Functor)
 
 runOperation :: Operation m a -> m a
-runOperation (Operation _ x) = x
+runOperation = operationInner
 
 registerInput :: Applicative m => HasInputs a => a -> Operation m ()
 registerInput input = registerInputs (getInputs input)
 
 registerInputs :: Applicative m => Inputs -> Operation m ()
-registerInputs inputs = Operation inputs (pure ())
+registerInputs inputs = Operation inputs () (pure ())
 
 instance Applicative m => Applicative (Operation m) where
-  pure = Operation [] . pure
-  Operation fInputs f <*> Operation xInputs x = Operation (fInputs <> xInputs) (f <*> x)
+  pure x = Operation [] x $ pure x
+  Operation fInputs fakeF f <*> Operation xInputs fakeX x = Operation (fInputs <> xInputs) (fakeF fakeX) (f <*> x)
 
 instance Monad m => Monad (Operation m) where
-  Operation xInputs x >>= f = Operation xInputs do
-    x' <- x
-    -- this just discard the subsequent inputs, which is probably not what we want
-    let Operation _ y = f x'
-    y
+  Operation xInputs fakeX x >>= f =
+    -- Use the fake value to retrieve inputs from the rest of the operation
+    -- (this only works if the inputs are not dynamic)
+    Operation (xInputs <> yInputs) fakeY do
+      -- then discard the inputs when processing the real thing
+      x >>= runOperation . f
+    where
+      Operation yInputs fakeY _ = f fakeX
 
 instance HasInputs (Operation m r) where
-  getInputs (Operation inputs _) = inputs
+  getInputs = operationInputs
 
 infixr 5 |>
 
 (|>) :: a #> b -> b #> c -> a #> c
-Operation aInputs a |> Operation bInputs b =
-  Operation (aInputs <> bInputs) $ a >-> b
+Operation aInputs () a |> Operation bInputs () b =
+  Operation (aInputs <> bInputs) () $ a >-> b
 
 infixl 5 <|
 
