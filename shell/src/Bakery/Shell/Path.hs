@@ -1,11 +1,12 @@
 module Bakery.Shell.Path
   ( OutputPath (..),
     Path (..),
-    unknownOutputPathFailure,
+    PathException (..),
   )
 where
 
 import Bakery.Input (HasInputs (..))
+import Control.Exception (Exception)
 
 data OutputPath where
   KnownOutputPath :: FilePath -> OutputPath
@@ -19,5 +20,10 @@ instance HasInputs OutputPath where
 class Path a where
   toPath :: a -> FilePath
 
-unknownOutputPathFailure :: String
-unknownOutputPathFailure = "INTERNAL ERROR: Cannot write to an unknown path."
+data PathException where
+  UnknownOutputPathException :: PathException
+
+instance Show PathException where
+  show UnknownOutputPathException = "INTERNAL ERROR: Cannot write to an unknown path."
+
+instance Exception PathException

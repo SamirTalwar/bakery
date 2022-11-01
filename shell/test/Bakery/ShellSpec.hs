@@ -5,8 +5,8 @@ import Bakery.Identifier
 import Bakery.Input
 import Bakery.Shell
 import Bakery.Shell.Argument
+import Bakery.Shell.Operation (fromPipe)
 import Bakery.Shell.Prelude qualified as B
-import Control.Monad.Trans (lift)
 import Data.Text qualified as Text
 import Data.Void (Void)
 import Pipes qualified
@@ -25,7 +25,7 @@ spec = do
 
     it "propagates errors" do
       let operation :: () #> Int
-          operation = lift do
+          operation = fromPipe do
             Pipes.yield 1
             Pipes.yield 2
             Pipes.yield 3

@@ -5,7 +5,7 @@ module Bakery.Shell.Argument
   )
 where
 
-import Bakery.Shell.Path (OutputPath (..), unknownOutputPathFailure)
+import Bakery.Shell.Path (OutputPath (..), PathException (..))
 
 data Arg where
   StringArg :: String -> Arg
@@ -30,4 +30,4 @@ fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
 fromArg (IntegerArg arg) = show arg
 fromArg (OutputPathArg (KnownOutputPath arg)) = arg
-fromArg (OutputPathArg UnknownOutputPath) = error unknownOutputPathFailure
+fromArg (OutputPathArg UnknownOutputPath) = error (show UnknownOutputPathException)

@@ -8,7 +8,7 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Operation (registerInputs, (|>), type (#>))
+import Bakery.Shell.Operation
 import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
@@ -24,7 +24,7 @@ import System.Process.Typed qualified as Process
 -- | Constructs a "run" operation, which invokes a command, reading the input as
 -- STDIN and writing STDOUT to the output.
 run :: Arguments -> Chunk ByteString #> Chunk ByteString
-run (Arguments inputs command args) = runOperation inputs command args
+run (Arguments inputs command args) = constructOperation inputs command args
 
 data Arguments = Arguments Inputs Arg [Arg]
 
@@ -74,10 +74,10 @@ instance RunType (() #> Chunk ByteString) where
   runConstruct inputs command reversedArgs = nullStdIn |> runConstruct inputs command reversedArgs
 
 instance RunType (Chunk ByteString #> Chunk ByteString) where
-  runConstruct inputs command reversedArgs = runOperation inputs command (List.reverse reversedArgs)
+  runConstruct inputs command reversedArgs = constructOperation inputs command (List.reverse reversedArgs)
 
-runOperation :: Inputs -> Arg -> [Arg] -> Chunk ByteString #> Chunk ByteString
-runOperation inputs command args = registerInputs inputs >> lift (bracket start stop stream)
+constructOperation :: Inputs -> Arg -> [Arg] -> Chunk ByteString #> Chunk ByteString
+constructOperation inputs command args = registerInputs inputs >> fromPipe (bracket start stop stream)
   where
     start =
       Process.startProcess $
