@@ -1,6 +1,5 @@
 module Bakery.Shell.Run
   ( run,
-    run_,
     cmd,
   )
 where
@@ -8,16 +7,15 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
-import Bakery.Shell.Shell (Shell, fromPipe, (|>))
+import Bakery.Shell.Shell (Shell)
+import Bakery.Shell.Shell qualified as Shell
 import Bakery.Shell.TrackingInputs (registerInputs)
 import Control.Monad.Catch (MonadMask)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List qualified as List
-import Data.Void (Void)
 import GHC.IO.Handle (hClose)
-import Pipes
 import Pipes.ByteString qualified
 import Pipes.Safe (bracket)
 import System.Exit (ExitCode (..))
@@ -26,10 +24,8 @@ import System.Process.Typed qualified as Process
 -- | Constructs a "run" operation, which invokes a command, reading the input as
 -- STDIN and writing STDOUT to the output.
 run :: (MonadMask m, MonadIO m) => Arguments -> Shell m (Chunk ByteString) (Chunk ByteString) ()
-run (Arguments inputs command args) = runUnpacked inputs command args
-
-runUnpacked :: (MonadMask m, MonadIO m) => Inputs -> Arg -> [Arg] -> Shell m (Chunk ByteString) (Chunk ByteString) ()
-runUnpacked inputs command args = registerInputs inputs >> fromPipe (bracket start stop stream)
+run (Arguments inputs command args) =
+  registerInputs inputs >> Shell.fromPipe (bracket start stop stream)
   where
     start =
       Process.startProcess $
@@ -68,33 +64,3 @@ instance (Argument a, HasInputs a, CmdType r) => CmdType (a -> r) where
 
 instance CmdType Arguments where
   cmdConstruct inputs command reversedArgs = Arguments inputs command (List.reverse reversedArgs)
-
--- | A variation of 'run' which provides null input, discards output, or both.
---
--- This function is variadic; you can keep providing arguments until you are
--- done, and they can be of different types. For example:
---
--- > run_ "seq" 1 10
---
--- This is separate from 'run' so as to reduce the chance of spurious ambiguity
--- errors. This version is best used standalone; 'run' is better for chaining.
-run_ :: (Argument a, HasInputs a, RunType r) => a -> r
-run_ arg = runConstruct (getInputs arg) (toArg arg) []
-
-class RunType r where
-  runConstruct :: Inputs -> Arg -> [Arg] -> r
-
-instance (Argument a, HasInputs a, RunType r) => RunType (a -> r) where
-  runConstruct inputs command reversedArgs arg = runConstruct (inputs <> getInputs arg) command (toArg arg : reversedArgs)
-
-instance (MonadMask m, MonadIO m) => RunType (Shell m () Void ()) where
-  runConstruct inputs command reversedArgs = nullStdIn |> runConstruct inputs command reversedArgs |> nullStdOut
-
-instance (MonadMask m, MonadIO m) => RunType (Shell m (Chunk ByteString) Void ()) where
-  runConstruct inputs command reversedArgs = runConstruct inputs command reversedArgs |> nullStdOut
-
-instance (MonadMask m, MonadIO m) => RunType (Shell m () (Chunk ByteString) ()) where
-  runConstruct inputs command reversedArgs = nullStdIn |> runConstruct inputs command reversedArgs
-
-instance (MonadMask m, MonadIO m) => RunType (Shell m (Chunk ByteString) (Chunk ByteString) ()) where
-  runConstruct inputs command reversedArgs = runUnpacked inputs command (List.reverse reversedArgs)

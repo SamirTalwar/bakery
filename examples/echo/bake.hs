@@ -4,9 +4,9 @@ import Bakery
 
 main = bake do
   hello <- recipe (file "hello.file") $ \output ->
-    run_ "echo" "Hello," "world!" |> writeF output
+    n $ run (cmd "echo" "Hello," "world!") |> writeF output
 
   recipe (file "goodbye.file") $ \output ->
-    run_ "echo" "Goodbye," "cruel" "world!" |> writeF output
+    n $ run (cmd "echo" "Goodbye," "cruel" "world!") |> writeF output
 
   defaultRecipe hello

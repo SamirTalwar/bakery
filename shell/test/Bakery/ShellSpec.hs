@@ -8,7 +8,6 @@ import Bakery.Shell.Argument
 import Bakery.Shell.Prelude qualified as B
 import Data.ByteString (ByteString)
 import Data.Text qualified as Text
-import Data.Void (Void)
 import Pipes qualified
 import System.IO.Error (tryIOError)
 import Test.Hspec
@@ -46,8 +45,8 @@ spec = do
 
   describe "input tracking" do
     it "tracks any inputs referenced" do
-      let shell :: Shell IO () Void ()
-          shell = run_ (TrackedArg "./one") (TrackedArg "./two")
+      let shell :: Shell IO (Chunk ByteString) (Chunk ByteString) ()
+          shell = run (cmd (TrackedArg "./one") (TrackedArg "./two"))
           inputs = getInputs shell
       case inputs of
         [An inputA, An inputB] -> do

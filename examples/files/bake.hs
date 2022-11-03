@@ -8,25 +8,25 @@ main = bake do
   existing <- existing $ file "existing.file"
 
   one <- recipe (file "one.file") $ \output ->
-    run_ "echo" "one" |> writeF output
+    n $ run (cmd "echo" "one") |> writeF output
 
   two <- recipe (file "two.file") $ \output ->
-    run_ "echo" "two" |> writeF output
+    n $ run (cmd "echo" "two") |> writeF output
 
   three <- recipe (file "three.file") $ \output ->
-    run_ "echo" "three" |> writeF output
+    n $ run (cmd "echo" "three") |> writeF output
 
   recipe (file "cat-existing.file") $ \output ->
-    run_ "cat" existing one two |> writeF output
+    n $ run (cmd "cat" existing one two) |> writeF output
 
   cat <- recipe (file "cat.file") $ \output ->
-    run_ "cat" one two |> writeF output
+    n $ run (cmd "cat" one two) |> writeF output
 
   recipe (file "cat-more.file") $ \output ->
-    run_ "cat" cat three |> writeF output
+    n $ run (cmd "cat" cat three) |> writeF output
 
   recipe (file "copy.file") $ \output ->
-    run_ "cp" existing output
+    n $ run (cmd "cp" existing output)
 
   recipe (file "two-phase.file") $ \output -> do
     let firstPhase = thisDirectory <> "/../tmp/first-phase.file"
@@ -34,13 +34,13 @@ main = bake do
     n $ run (cmd "cp" ~ firstPhase ~ output)
 
   recipe (file "non-existent.file") $ \output ->
-    run_ "cat" one
+    n $ run (cmd "cat" one)
 
   recipe (file "../files/./indirect.file") $ \output ->
-    run_ "echo" "this got there eventually" |> writeF output
+    n $ run (cmd "echo" "this got there eventually") |> writeF output
 
   recipe (file $ thisDirectory <> "/../tmp/output.file") $ \output ->
-    run_ "echo" "This is a test." |> writeF output
+    n $ run (cmd "echo" "This is a test.") |> writeF output
 
   recipe (file $ thisDirectory <> "/../tmp/non-existent.file") $ \output ->
-    run_ "cat"
+    n $ run (cmd "cat")

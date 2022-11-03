@@ -4,10 +4,10 @@ import Bakery
 
 main = bake do
   recipe (exec "true") do
-    run_ "true"
+    n $ run (cmd "true")
 
   recipe (exec "false") do
-    run_ "false"
+    n $ run (cmd "false")
 
   recipe (exec "count") do
-    run_ "seq" 1 10
+    n $ run (cmd "seq" 1 10)
