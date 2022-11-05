@@ -8,9 +8,10 @@ where
 import Bakery.Input (HasInputs (..), Inputs)
 import Bakery.Shell.Argument (Arg (..), Argument (..), fromArg)
 import Bakery.Shell.Chunk
-import Bakery.Shell.Pipe
 import Bakery.Shell.Prelude (nullStdIn, nullStdOut)
+import Bakery.Shell.Shell (Shell, fromPipe, (|>))
 import Bakery.Shell.TrackingInputs (registerInputs)
+import Control.Monad.Catch (MonadMask)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List qualified as List
@@ -24,8 +25,29 @@ import System.Process.Typed qualified as Process
 
 -- | Constructs a "run" operation, which invokes a command, reading the input as
 -- STDIN and writing STDOUT to the output.
-run :: Arguments -> Chunk ByteString #> Chunk ByteString
-run (Arguments inputs command args) = constructOperation inputs command args
+run :: (MonadMask m, MonadIO m) => Arguments -> Shell m (Chunk ByteString) (Chunk ByteString) ()
+run (Arguments inputs command args) = runUnpacked inputs command args
+
+runUnpacked :: (MonadMask m, MonadIO m) => Inputs -> Arg -> [Arg] -> Shell m (Chunk ByteString) (Chunk ByteString) ()
+runUnpacked inputs command args = registerInputs inputs >> fromPipe (bracket start stop stream)
+  where
+    start =
+      Process.startProcess $
+        Process.setStdin Process.createPipe $
+          Process.setStdout Process.createPipe $
+            Process.proc (fromArg command) (map fromArg args)
+    stop process = liftIO do
+      hClose $ Process.getStdin process
+      hClose $ Process.getStdout process
+      exitCode <- Process.waitExitCode process
+      case exitCode of
+        ExitSuccess -> pure ()
+        ExitFailure (-13) -> pure () -- ignore SIGPIPE errors
+        ExitFailure code -> fail $ "The command failed with exit code " <> show code <> "."
+    stream process = do
+      let stdinHandle = Process.getStdin process
+      consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
+      capped (Pipes.ByteString.fromHandle (Process.getStdout process))
 
 data Arguments = Arguments Inputs Arg [Arg]
 
@@ -65,35 +87,14 @@ class RunType r where
 instance (Argument a, HasInputs a, RunType r) => RunType (a -> r) where
   runConstruct inputs command reversedArgs arg = runConstruct (inputs <> getInputs arg) command (toArg arg : reversedArgs)
 
-instance RunType (() #> Void) where
+instance (MonadMask m, MonadIO m) => RunType (Shell m () Void ()) where
   runConstruct inputs command reversedArgs = nullStdIn |> runConstruct inputs command reversedArgs |> nullStdOut
 
-instance RunType (Chunk ByteString #> Void) where
+instance (MonadMask m, MonadIO m) => RunType (Shell m (Chunk ByteString) Void ()) where
   runConstruct inputs command reversedArgs = runConstruct inputs command reversedArgs |> nullStdOut
 
-instance RunType (() #> Chunk ByteString) where
+instance (MonadMask m, MonadIO m) => RunType (Shell m () (Chunk ByteString) ()) where
   runConstruct inputs command reversedArgs = nullStdIn |> runConstruct inputs command reversedArgs
 
-instance RunType (Chunk ByteString #> Chunk ByteString) where
-  runConstruct inputs command reversedArgs = constructOperation inputs command (List.reverse reversedArgs)
-
-constructOperation :: Inputs -> Arg -> [Arg] -> Chunk ByteString #> Chunk ByteString
-constructOperation inputs command args = registerInputs inputs >> fromPipe (bracket start stop stream)
-  where
-    start =
-      Process.startProcess $
-        Process.setStdin Process.createPipe $
-          Process.setStdout Process.createPipe $
-            Process.proc (fromArg command) (map fromArg args)
-    stop process = liftIO do
-      hClose $ Process.getStdin process
-      hClose $ Process.getStdout process
-      exitCode <- Process.waitExitCode process
-      case exitCode of
-        ExitSuccess -> pure ()
-        ExitFailure (-13) -> pure () -- ignore SIGPIPE errors
-        ExitFailure code -> fail $ "The command failed with exit code " <> show code <> "."
-    stream process = do
-      let stdinHandle = Process.getStdin process
-      consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
-      capped (Pipes.ByteString.fromHandle (Process.getStdout process))
+instance (MonadMask m, MonadIO m) => RunType (Shell m (Chunk ByteString) (Chunk ByteString) ()) where
+  runConstruct inputs command reversedArgs = runUnpacked inputs command (List.reverse reversedArgs)

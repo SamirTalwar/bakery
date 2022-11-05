@@ -4,18 +4,18 @@ module Bakery.Shell.Prelude.Generation
   )
 where
 
-import Bakery.Shell.Pipe
+import Bakery.Shell.Shell
 import Pipes qualified
 import Prelude hiding (cycle, repeat, replicate)
 
 -- | An operation that repeats the given value indefinitely.
-repeat :: a -> () #> a
+repeat :: Functor m => a -> Shell m () a ()
 repeat = fromPipe . pipeRepeat
   where
     pipeRepeat value = Pipes.yield value >> pipeRepeat value
 
 -- | An operation that repeats the given value a number of times.
-replicate :: Int -> a -> () #> a
+replicate :: Functor m => Int -> a -> Shell m () a ()
 replicate n' = fromPipe . pipeReplicate n'
   where
     pipeReplicate n value

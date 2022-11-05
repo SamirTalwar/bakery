@@ -5,7 +5,7 @@ import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell (evaluate_, type (#>))
+import Bakery.Shell (Shell, evaluate_)
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (OutputPath (..), Path (..))
 import Control.Monad.IO.Class (liftIO)
@@ -30,7 +30,7 @@ instance Identifiable File where
   name (File path) = Name (Text.pack path)
 
 instance Bakeable File where
-  type Recipe File = OutputPath -> () #> Void
+  type Recipe File = OutputPath -> Shell IO () Void ()
   normalize (File path) = Baking $ do
     -- we probably need to reimplement this with regards to 'Env.root'
     root <- liftIO Directory.getCurrentDirectory

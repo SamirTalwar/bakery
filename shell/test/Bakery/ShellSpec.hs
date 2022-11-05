@@ -24,13 +24,13 @@ spec = do
       result `shouldBe` [4, 8 .. 40]
 
     it "propagates errors" do
-      let operation :: () #> Int
-          operation = fromPipe do
+      let shell :: Shell IO () Int ()
+          shell = fromPipe do
             Pipes.yield 1
             Pipes.yield 2
             Pipes.yield 3
             fail "Oh no!"
-      result <- tryIOError $ evaluate operation []
+      result <- tryIOError $ evaluate shell []
       result `shouldBe` Left (userError "Oh no!")
 
     it "can run multiple operations over the streamed input" do
@@ -46,9 +46,9 @@ spec = do
 
   describe "input tracking" do
     it "tracks any inputs referenced" do
-      let operation :: () #> Void
-          operation = run_ (TrackedArg "./one") (TrackedArg "./two")
-          inputs = getInputs operation
+      let shell :: Shell IO () Void ()
+          shell = run_ (TrackedArg "./one") (TrackedArg "./two")
+          inputs = getInputs shell
       case inputs of
         [An inputA, An inputB] -> do
           -- abusing `show` to check whether the arguments are legitimate
@@ -57,11 +57,11 @@ spec = do
         _ -> fail ("Unexpected inputs: " <> show inputs)
 
     it "tracks inputs over multiple operations" do
-      let operation :: Chunk ByteString #> Chunk ByteString
-          operation = do
+      let shell :: Shell IO (Chunk ByteString) (Chunk ByteString) ()
+          shell = do
             run (cmd (TrackedArg "./one") (TrackedArg "./two"))
             run (cmd (TrackedArg "./three"))
-          inputs = getInputs operation
+          inputs = getInputs shell
       case inputs of
         [An inputA, An inputB, An inputC] -> do
           -- abusing `show` to check whether the arguments are legitimate

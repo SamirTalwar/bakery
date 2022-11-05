@@ -25,7 +25,7 @@ instance Semigroup a => Semigroup (Chunk a) where
 instance Semigroup a => Monoid (Chunk a) where
   mempty = End
 
-capped :: Monad m => Pipe a b m () -> Pipe a (Chunk b) m ()
+capped :: Functor m => Pipe a b m () -> Pipe a (Chunk b) m ()
 capped pipe = (pipe >-> P.map Value) <> yield End
 
 consume :: Monad m => (a -> m ()) -> m () -> Pipe (Chunk a) b m ()

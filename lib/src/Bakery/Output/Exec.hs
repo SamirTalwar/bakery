@@ -24,7 +24,7 @@ instance Identifiable Exec where
   name (Exec execName) = Name execName
 
 instance Bakeable Exec where
-  type Recipe Exec = (() #> Chunk ByteString)
+  type Recipe Exec = Shell IO () (Chunk ByteString) ()
   parseName = pure . Just . Exec
   deriveInputs _ = getInputs
   exists _ = pure True

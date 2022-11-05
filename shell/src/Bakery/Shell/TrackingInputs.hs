@@ -3,8 +3,7 @@ module Bakery.Shell.TrackingInputs
     liftWithFakeValue,
     combineInputs,
     withoutInputs,
-    registerInput,
-    registerInputs,
+    MonadTrackingInputs (..),
   )
 where
 
@@ -17,6 +16,13 @@ data TrackingInputs m a = TrackingInputs
     operationInner :: m a
   }
   deriving stock (Functor)
+
+class MonadTrackingInputs m where
+  -- | Register a new input for tracking.
+  registerInput :: HasInputs a => a -> m ()
+
+  -- | Register a number of inputs for tracking.
+  registerInputs :: Inputs -> m ()
 
 -- | Lifts a monad into the monad transformer.
 --
@@ -45,13 +51,9 @@ combineInputs
 withoutInputs :: TrackingInputs m a -> m a
 withoutInputs = operationInner
 
--- | Register a new input for tracking.
-registerInput :: Applicative m => HasInputs a => a -> TrackingInputs m ()
-registerInput input = registerInputs (getInputs input)
-
--- | Register a number of inputs for tracking.
-registerInputs :: Applicative m => Inputs -> TrackingInputs m ()
-registerInputs inputs = TrackingInputs inputs () (pure ())
+instance Applicative m => MonadTrackingInputs (TrackingInputs m) where
+  registerInput input = registerInputs (getInputs input)
+  registerInputs inputs = TrackingInputs inputs () (pure ())
 
 instance Applicative m => Applicative (TrackingInputs m) where
   pure x = TrackingInputs [] x $ pure x
