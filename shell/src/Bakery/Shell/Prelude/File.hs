@@ -23,7 +23,8 @@ import System.IO (IOMode (..), hClose)
 readF :: (MonadMask m, MonadIO m, HasInputs a, Path a) => a -> Shell m () (Chunk ByteString) ()
 readF input = do
   registerInput input
-  fromPipe $ capped (Pipes.Safe.withFile (toPath input) ReadMode Pipes.ByteString.fromHandle)
+  path <- toPath input
+  fromPipe $ capped (Pipes.Safe.withFile path ReadMode Pipes.ByteString.fromHandle)
 
 -- | An operation that writes its input to the given file.
 writeF :: (MonadMask m, MonadIO m) => OutputPath -> Shell m (Chunk ByteString) Void ()

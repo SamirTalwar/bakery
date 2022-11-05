@@ -5,7 +5,7 @@ import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell.Argument (Arg (..), Argument (..))
+import Bakery.Shell.Argument (Argument (..))
 import Bakery.Shell.Path (Path (..))
 import Data.Data (Proxy (..))
 
@@ -34,8 +34,8 @@ instance Bakeable a => Bakeable (Existing a) where
 instance (Identifiable a, Show a) => HasInputs (Existing a) where
   getInputs self = [An (Input self)]
 
-instance (Identifiable a, Path a, Show a) => Path (Existing a) where
+instance Path a => Path (Existing a) where
   toPath (Existing x) = toPath x
 
-instance (Identifiable a, Path a, Show a) => Argument (Existing a) where
-  toArg = StringArg . toPath
+instance Argument a => Argument (Existing a) where
+  toArg (Existing x) = toArg x

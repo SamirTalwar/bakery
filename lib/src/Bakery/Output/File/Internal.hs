@@ -52,10 +52,10 @@ instance HasInputs File where
   getInputs self = [An (Input self)]
 
 instance Path File where
-  toPath (File path) = path
+  toPath (File path) = pure path
 
 instance Argument File where
-  toArg = StringArg . toPath
+  toArg (File path) = PathArg path
 
 file :: String -> File
 file path = File (fromString path)

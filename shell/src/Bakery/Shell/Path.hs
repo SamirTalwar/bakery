@@ -18,7 +18,7 @@ instance HasInputs OutputPath where
   getInputs = const []
 
 class Path a where
-  toPath :: a -> FilePath
+  toPath :: Monad m => a -> m FilePath
 
 data PathException where
   UnknownOutputPathException :: PathException
