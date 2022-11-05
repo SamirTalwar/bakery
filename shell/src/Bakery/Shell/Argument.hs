@@ -10,7 +10,8 @@ import Bakery.Shell.Path (OutputPath (..), PathException (..))
 data Arg where
   StringArg :: String -> Arg
   IntegerArg :: Integer -> Arg
-  OutputPathArg :: OutputPath -> Arg
+  PathArg :: FilePath -> Arg
+  ErrorArg :: String -> Arg
 
 deriving stock instance Show Arg
 
@@ -24,10 +25,11 @@ instance Argument Integer where
   toArg = IntegerArg
 
 instance Argument OutputPath where
-  toArg = OutputPathArg
+  toArg (KnownOutputPath path) = PathArg path
+  toArg UnknownOutputPath = ErrorArg (show UnknownOutputPathException)
 
 fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
 fromArg (IntegerArg arg) = show arg
-fromArg (OutputPathArg (KnownOutputPath arg)) = arg
-fromArg (OutputPathArg UnknownOutputPath) = error (show UnknownOutputPathException)
+fromArg (PathArg arg) = arg
+fromArg (ErrorArg message) = error message
