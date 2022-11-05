@@ -1,6 +1,7 @@
 module Bakery.Shell.Run
   ( run,
     cmd,
+    (~),
   )
 where
 
@@ -23,15 +24,15 @@ import System.Process.Typed qualified as Process
 
 -- | Constructs a "run" operation, which invokes a command, reading the input as
 -- STDIN and writing STDOUT to the output.
-run :: (MonadMask m, MonadIO m) => Arguments -> Shell m (Chunk ByteString) (Chunk ByteString) ()
-run (Arguments inputs command args) =
+run :: (MonadMask m, MonadIO m) => Command -> Shell m (Chunk ByteString) (Chunk ByteString) ()
+run (Command inputs command reversedArgs) =
   registerInputs inputs >> Shell.fromPipe (bracket start stop stream)
   where
     start =
       Process.startProcess $
         Process.setStdin Process.createPipe $
           Process.setStdout Process.createPipe $
-            Process.proc (fromArg command) (map fromArg args)
+            Process.proc (fromArg command) (map fromArg (List.reverse reversedArgs))
     stop process = liftIO do
       hClose $ Process.getStdin process
       hClose $ Process.getStdout process
@@ -45,22 +46,14 @@ run (Arguments inputs command args) =
       consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
       capped (Pipes.ByteString.fromHandle (Process.getStdout process))
 
-data Arguments = Arguments Inputs Arg [Arg]
+data Command = Command Inputs Arg [Arg]
 
 -- | Constructs a command to be 'run'.
---
--- This function is variadic; you can keep providing arguments until you are
--- done, and they can be of different types. For example:
---
--- > run (cmd "seq" 1 10)
-cmd :: (Argument a, HasInputs a, CmdType r) => a -> r
-cmd command = cmdConstruct (getInputs command) (toArg command) []
+cmd :: (Argument a, HasInputs a) => a -> Command
+cmd command = Command (getInputs command) (toArg command) []
 
-class CmdType r where
-  cmdConstruct :: Inputs -> Arg -> [Arg] -> r
+infixl 7 ~
 
-instance (Argument a, HasInputs a, CmdType r) => CmdType (a -> r) where
-  cmdConstruct inputs command reversedArgs arg = cmdConstruct (inputs <> getInputs arg) command (toArg arg : reversedArgs)
-
-instance CmdType Arguments where
-  cmdConstruct inputs command reversedArgs = Arguments inputs command (List.reverse reversedArgs)
+-- | Adds an argument to a command.
+(~) :: (Argument a, HasInputs a) => Command -> a -> Command
+Command inputs command reversedArgs ~ arg = Command (inputs <> getInputs arg) command (toArg arg : reversedArgs)

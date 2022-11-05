@@ -14,7 +14,7 @@ spec :: Spec
 spec = do
   describe "run" do
     it "runs a program, capturing STDOUT" do
-      chunks :: [Chunk ByteString] <- evaluate (run (cmd "echo" "one" "two" "three")) [Chunk.End]
+      chunks :: [Chunk ByteString] <- evaluate (run (cmd "echo" ~ "one" ~ "two" ~ "three")) [Chunk.End]
       let result = fold $ mconcat chunks
       result `shouldBe` ByteString.pack "one two three\n"
 

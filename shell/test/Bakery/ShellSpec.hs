@@ -46,7 +46,7 @@ spec = do
   describe "input tracking" do
     it "tracks any inputs referenced" do
       let shell :: Shell IO (Chunk ByteString) (Chunk ByteString) ()
-          shell = run (cmd (TrackedArg "./one") (TrackedArg "./two"))
+          shell = run (cmd (TrackedArg "./one") ~ TrackedArg "./two")
           inputs = getInputs shell
       case inputs of
         [An inputA, An inputB] -> do
@@ -58,7 +58,7 @@ spec = do
     it "tracks inputs over multiple operations" do
       let shell :: Shell IO (Chunk ByteString) (Chunk ByteString) ()
           shell = do
-            run (cmd (TrackedArg "./one") (TrackedArg "./two"))
+            run (cmd "run" ~ TrackedArg "./one" ~ TrackedArg "./two")
             run (cmd (TrackedArg "./three"))
           inputs = getInputs shell
       case inputs of

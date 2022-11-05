@@ -10,4 +10,4 @@ main = bake do
     n $ run (cmd "false")
 
   recipe (exec "count") do
-    n $ run (cmd "seq" 1 10)
+    n $ run (cmd "seq" ~ 1 ~ 10)
