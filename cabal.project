@@ -5,6 +5,8 @@ packages:
   shell
 
 optimization: False
+tests: True
+documentation: True
 
 program-options
   ghc-options:
