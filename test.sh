@@ -38,6 +38,7 @@ note 'cabal test all'
 cabal test -j all
 
 note 'smoke'
+mkdir -p examples/tmp # required due to a bug in Smoke; it cannot store/revert non-existent directories
 (
   PATH="${PWD}/bin:${PATH}"
   cabal exec -- smoke "${SMOKE_TARGETS[@]}"
