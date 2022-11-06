@@ -24,36 +24,41 @@ import System.Process.Typed qualified as Process
 
 -- | Constructs a "run" operation, which invokes a command, reading the input as
 -- STDIN and writing STDOUT to the output.
-run :: (MonadMask m, MonadIO m) => Command -> Shell m (Chunk ByteString) (Chunk ByteString) ()
-run (Command inputs command reversedArgs) =
-  registerInputs inputs >> Shell.fromPipe (bracket start stop stream)
-  where
-    start =
-      Process.startProcess $
-        Process.setStdin Process.createPipe $
-          Process.setStdout Process.createPipe $
-            Process.proc (fromArg command) (map fromArg (List.reverse reversedArgs))
-    stop process = liftIO do
-      hClose $ Process.getStdin process
-      hClose $ Process.getStdout process
-      exitCode <- Process.waitExitCode process
-      case exitCode of
-        ExitSuccess -> pure ()
-        ExitFailure (-13) -> pure () -- ignore SIGPIPE errors
-        ExitFailure code -> fail $ "The command failed with exit code " <> show code <> "."
-    stream process = do
-      let stdinHandle = Process.getStdin process
-      consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
-      capped (Pipes.ByteString.fromHandle (Process.getStdout process))
+run :: (MonadMask m, MonadIO m) => Command m -> Shell m (Chunk ByteString) (Chunk ByteString) ()
+run (Command inputs commandM reversedArgsM) = do
+  registerInputs inputs
+  command <- fromArg <$> Shell.lift unknownArg commandM
+  args <- map fromArg <$> mapM (Shell.lift unknownArg) (List.reverse reversedArgsM)
+  let start = liftIO do
+        Process.startProcess $
+          Process.setStdin Process.createPipe $
+            Process.setStdout Process.createPipe $
+              Process.proc command args
+      stop process = liftIO do
+        hClose $ Process.getStdin process
+        hClose $ Process.getStdout process
+        exitCode <- Process.waitExitCode process
+        case exitCode of
+          ExitSuccess -> pure ()
+          ExitFailure (-13) -> pure () -- ignore SIGPIPE errors
+          ExitFailure code -> fail $ "The command failed with exit code " <> show code <> "."
+      stream process = do
+        let stdinHandle = Process.getStdin process
+        consume (liftIO . ByteString.hPut stdinHandle) (liftIO (hClose stdinHandle))
+        capped (Pipes.ByteString.fromHandle (Process.getStdout process))
+  Shell.fromPipe (bracket start stop stream)
 
-data Command = Command Inputs Arg [Arg]
+data Command m = Command Inputs (m Arg) [m Arg]
 
 -- | Constructs a command to be 'run'.
-cmd :: (Argument a, HasInputs a) => a -> Command
+cmd :: (Argument m a, HasInputs a) => a -> Command m
 cmd command = Command (getInputs command) (toArg command) []
 
 infixl 7 ~
 
 -- | Adds an argument to a command.
-(~) :: (Argument a, HasInputs a) => Command -> a -> Command
+(~) :: (Argument m a, HasInputs a) => Command m -> a -> Command m
 Command inputs command reversedArgs ~ arg = Command (inputs <> getInputs arg) command (toArg arg : reversedArgs)
+
+unknownArg :: Arg
+unknownArg = ErrorArg "Tried to process an argument during input tracking."

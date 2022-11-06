@@ -34,8 +34,8 @@ instance Bakeable a => Bakeable (Existing a) where
 instance (Identifiable a, Show a) => HasInputs (Existing a) where
   getInputs self = [An (Input self)]
 
-instance Path a => Path (Existing a) where
+instance Path m a => Path m (Existing a) where
   toPath (Existing x) = toPath x
 
-instance Argument a => Argument (Existing a) where
+instance Argument m a => Argument m (Existing a) where
   toArg (Existing x) = toArg x

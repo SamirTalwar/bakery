@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module Bakery.Shell.Prelude.Null
   ( nullStdIn,
     nullStdOut,

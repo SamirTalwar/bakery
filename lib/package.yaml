@@ -17,6 +17,7 @@ default-extensions:
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - LambdaCase
+  - MultiParamTypeClasses
   - NamedFieldPuns
   - OverloadedStrings
   - ScopedTypeVariables

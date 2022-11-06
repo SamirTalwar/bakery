@@ -14,6 +14,7 @@ import Bakery.Shell.Shell
     evaluate,
     evaluate_,
     fromPipe,
+    lift,
     (<|),
     (|>),
   )

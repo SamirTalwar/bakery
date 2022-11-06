@@ -5,10 +5,10 @@ import Bakery
 main = bake do
   input <- existing $ file "input.file"
 
-  target <- recipe (file "output.file") $ \output ->
-    readF input |> run (cmd "tr" ~ "[:lower:]" ~ "[:upper:]") |> writeF output
+  main <- recipe (file "output.file") do
+    readF input |> run (cmd "tr" ~ "[:lower:]" ~ "[:upper:]") |> writeF target
 
-  recipe (file "again.file") $ \output ->
-    readF target |> run (cmd "tr" ~ "[:upper:]" ~ "[:lower:]") |> run (cmd "tr" ~ "[:lower:]" ~ "[:upper:]") |> writeF output
+  recipe (file "again.file") do
+    readF main |> run (cmd "tr" ~ "[:upper:]" ~ "[:lower:]") |> run (cmd "tr" ~ "[:lower:]" ~ "[:upper:]") |> writeF target
 
-  defaultRecipe target
+  defaultRecipe main

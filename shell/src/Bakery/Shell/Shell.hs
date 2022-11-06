@@ -1,5 +1,6 @@
 module Bakery.Shell.Shell
   ( Shell (..),
+    lift,
     fromPipe,
     (|>),
     (<|),
@@ -13,6 +14,7 @@ import Bakery.Shell.TrackingInputs
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans qualified as Trans
 import Data.Void (Void)
 import Pipes (Pipe, (>->))
 import Pipes qualified
@@ -22,6 +24,11 @@ import Pipes.Safe (SafeT, runSafeT)
 -- | A shell is a streaming operation from 'i' to 'o', with effects from 'm'.
 newtype Shell m i o r = Shell {unShell :: TrackingInputs (Pipe i o (SafeT m)) r}
   deriving newtype (Functor, Applicative, Monad, MonadTrackingInputs, HasInputs)
+
+-- | Lifts a value into the 'Shell' monad. This requires a fake return value to make the input tracking happy.
+-- This means it only works for values which can be faked, and so it's not a true monad transformer.
+lift :: Monad m => r -> m r -> Shell m i o r
+lift fakeValue inner = Shell $ liftWithFakeValue fakeValue (Trans.lift (Trans.lift inner))
 
 -- | Lifts a 'Pipe' into the 'Shell' type.
 fromPipe :: Pipe i o (SafeT m) () -> Shell m i o ()

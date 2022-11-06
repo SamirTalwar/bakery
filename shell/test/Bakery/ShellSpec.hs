@@ -78,8 +78,8 @@ instance Show a => Identifiable (TrackedArg a) where
   namespace _ = Namespace (Text.pack "tracked arg")
   name x = Name (Text.pack (show x))
 
-instance Argument (TrackedArg String) where
-  toArg (TrackedArg x) = StringArg x
+instance Applicative m => Argument m (TrackedArg String) where
+  toArg (TrackedArg x) = pure $ StringArg x
 
 instance Show a => HasInputs (TrackedArg a) where
   getInputs x = [An (Input x)]

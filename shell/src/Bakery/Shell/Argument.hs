@@ -5,8 +5,6 @@ module Bakery.Shell.Argument
   )
 where
 
-import Bakery.Shell.Path (OutputPath (..), PathException (..))
-
 data Arg where
   StringArg :: String -> Arg
   IntegerArg :: Integer -> Arg
@@ -15,18 +13,17 @@ data Arg where
 
 deriving stock instance Show Arg
 
-class Argument a where
-  toArg :: a -> Arg
+class Argument m a where
+  toArg :: a -> m Arg
 
-instance Argument String where
-  toArg = StringArg
+instance Applicative m => Argument m String where
+  toArg = pure . StringArg
 
-instance Argument Integer where
-  toArg = IntegerArg
+instance Applicative m => Argument m Integer where
+  toArg = pure . IntegerArg
 
-instance Argument OutputPath where
-  toArg (KnownOutputPath path) = PathArg path
-  toArg UnknownOutputPath = ErrorArg (show UnknownOutputPathException)
+instance (Monad m, Argument m a) => Argument m (m a) where
+  toArg = (toArg =<<)
 
 fromArg :: Arg -> String
 fromArg (StringArg arg) = arg
