@@ -3,11 +3,11 @@
 import Bakery
 
 main = bake do
-  recipe (exec "true") do
+  recipe (exec "true") $ shell do
     n $ run (cmd "true")
 
-  recipe (exec "false") do
+  recipe (exec "false") $ shell do
     n $ run (cmd "false")
 
-  recipe (exec "count") do
+  recipe (exec "count") $ shell do
     n $ run (cmd "seq" ~ 1 ~ 10)

@@ -23,7 +23,7 @@ import Data.Text (Text)
 import Data.Typeable (Proxy (..))
 
 class (Eq a, Show a, Identifiable a) => Bakeable a where
-  type Recipe a
+  data Recipe a
   normalize :: a -> Baking a
   normalize = pure
   parseName :: Text -> Baking (Maybe a)

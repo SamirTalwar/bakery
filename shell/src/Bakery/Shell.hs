@@ -1,5 +1,6 @@
 module Bakery.Shell
   ( module Bakery.Shell.Chunk,
+    module Bakery.Shell.IsShell,
     module Bakery.Shell.Prelude,
     module Bakery.Shell.Run,
     module Bakery.Shell.Shell,
@@ -7,6 +8,7 @@ module Bakery.Shell
 where
 
 import Bakery.Shell.Chunk (Chunk)
+import Bakery.Shell.IsShell
 import Bakery.Shell.Prelude
 import Bakery.Shell.Run
 import Bakery.Shell.Shell

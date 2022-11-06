@@ -1,11 +1,11 @@
-module Bakery.Output.File.Internal (File (..), file, target) where
+module Bakery.Output.File.Internal (File (..), file, target, Recipe (..)) where
 
 import Bakery.A
 import Bakery.Bakeable
 import Bakery.Baking
 import Bakery.Identifier
 import Bakery.Input
-import Bakery.Shell (Shell, evaluate_)
+import Bakery.Shell
 import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (Path (..))
 import Control.Monad.IO.Class (liftIO)
@@ -36,7 +36,8 @@ instance Identifiable File where
   name (File path) = Name (Text.pack path)
 
 instance Bakeable File where
-  type Recipe File = Shell (ReaderT FilePath IO) () Void ()
+  newtype Recipe File = FileShell (Shell (ReaderT FilePath IO) () Void ())
+    deriving newtype (HasInputs)
   normalize (File path) = Baking $ do
     -- we probably need to reimplement this with regards to 'Env.root'
     root <- liftIO Directory.getCurrentDirectory
@@ -52,7 +53,10 @@ instance Bakeable File where
           else pure Nothing
   deriveInputs _ = getInputs
   exists (File path) = liftIO $ Directory.doesPathExist path
-  follow recipe f@(File path) = liftIO $ runReaderT (evaluate_ recipe $> f) path
+  follow (FileShell recipe) f@(File path) = liftIO (runReaderT (evaluate_ recipe) path) $> f
+
+instance IsShell (ReaderT FilePath IO) () Void (Recipe File) where
+  shell = FileShell
 
 instance HasInputs File where
   getInputs self = [An (Input self)]

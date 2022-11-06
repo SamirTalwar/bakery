@@ -1,4 +1,4 @@
-module Bakery.Output.Exec (Exec, exec) where
+module Bakery.Output.Exec (Exec, exec, Recipe (..)) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
@@ -24,11 +24,15 @@ instance Identifiable Exec where
   name (Exec execName) = Name execName
 
 instance Bakeable Exec where
-  type Recipe Exec = Shell IO () (Chunk ByteString) ()
+  newtype Recipe Exec = ExecShell (Shell IO () (Chunk ByteString) ())
+    deriving newtype (HasInputs)
   parseName = pure . Just . Exec
   deriveInputs _ = getInputs
   exists _ = pure True
-  follow recipe target = do
+  follow (ExecShell recipe) target = do
     stdout <- liftIO $ evaluate recipe [()]
     forM_ stdout $ liftIO . ByteString.putStr . fold
     pure target
+
+instance IsShell IO () (Chunk ByteString) (Recipe Exec) where
+  shell = ExecShell
