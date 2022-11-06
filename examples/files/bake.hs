@@ -28,6 +28,11 @@ main = bake do
   recipe (file "copy.file") $ \output ->
     run_ "cp" existing output
 
+  recipe (file "two-phase.file") $ \output -> do
+    let firstPhase = thisDirectory <> "/../tmp/first-phase.file"
+    n $ run (cmd "echo" ~ "one" ~ "two") |> writeF firstPhase
+    n $ run (cmd "cp" ~ firstPhase ~ output)
+
   recipe (file "non-existent.file") $ \output ->
     run_ "cat" one
 

@@ -98,6 +98,19 @@ tests:
     revert:
       - .
 
+  - name: file/two-phase
+    command: |
+      rm -rf ../tmp
+      mkdir -p ../tmp
+      ./bake.hs two-phase.file
+    files:
+      - path: two-phase.file
+        contents: |
+          one two
+    revert:
+      - .
+      - ../tmp
+
   - name: files/non-existent
     command: ./bake.hs non-existent.file
     exit-status: 1
