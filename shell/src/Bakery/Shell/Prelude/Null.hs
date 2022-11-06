@@ -23,7 +23,7 @@ nullStdOut = Shell.fromPipe P.drain
 class NullIO m i o i' o' where
   n :: Shell m i o () -> Shell m i' o' ()
 
-instance Monad m => NullIO m () o () Void where
+instance Monad m => NullIO m i o i Void where
   n pipe = pipe |> nullStdOut
 
 instance Monad m => NullIO m (Chunk i) o () Void where

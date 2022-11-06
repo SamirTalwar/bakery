@@ -1,4 +1,4 @@
-module Bakery.Output.File.Internal (File (..), file, target, Recipe (..)) where
+module Bakery.Output.File.Internal (File (..), file, target) where
 
 import Bakery.A
 import Bakery.Bakeable
@@ -10,6 +10,7 @@ import Bakery.Shell.Argument (Arg (..), Argument (..))
 import Bakery.Shell.Path (Path (..))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
+import Data.ByteString (ByteString)
 import Data.Functor (($>))
 import Data.Text qualified as Text
 import Data.Typeable (Typeable)
@@ -57,6 +58,15 @@ instance Bakeable File where
 
 instance IsShell (ReaderT FilePath IO) () Void (Recipe File) where
   shell = FileShell
+
+instance IsShell (ReaderT FilePath IO) (Chunk ByteString) Void (Recipe File) where
+  shell sh = FileShell (n sh)
+
+instance IsShell (ReaderT FilePath IO) () (Chunk ByteString) (Recipe File) where
+  shell sh = FileShell (n sh)
+
+instance IsShell (ReaderT FilePath IO) (Chunk ByteString) (Chunk ByteString) (Recipe File) where
+  shell sh = FileShell (n sh)
 
 instance HasInputs File where
   getInputs self = [An (Input self)]

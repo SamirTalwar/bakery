@@ -1,4 +1,4 @@
-module Bakery.Output.Exec (Exec, exec, Recipe (..)) where
+module Bakery.Output.Exec (Exec, exec) where
 
 import Bakery.Bakeable
 import Bakery.Identifier
@@ -36,3 +36,6 @@ instance Bakeable Exec where
 
 instance IsShell IO () (Chunk ByteString) (Recipe Exec) where
   shell = ExecShell
+
+instance IsShell IO (Chunk ByteString) (Chunk ByteString) (Recipe Exec) where
+  shell sh = ExecShell (n sh)
