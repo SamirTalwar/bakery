@@ -98,6 +98,17 @@ tests:
     revert:
       - .
 
+  - name: files/cp
+    command: |
+      echo 'this is even more important' > existing.file
+      ./bake.hs cp.file
+    files:
+      - path: cp.file
+        contents: |
+          this is even more important
+    revert:
+      - .
+
   - name: file/two-phase
     command: |
       rm -rf ../tmp

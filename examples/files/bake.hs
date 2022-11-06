@@ -25,7 +25,9 @@ main = bake do
   recipe (file "cat-more.file") $ shell do
     run (cmd "cat" ~ cat ~ three) |> writeF target
 
-  recipe (file "copy.file") $ shell do
+  recipe (file "copy.file") $ copy existing
+
+  recipe (file "cp.file") $ shell do
     run (cmd "cp" ~ existing ~ target)
 
   recipe (file "two-phase.file") $ shell do
